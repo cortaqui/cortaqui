@@ -44,3 +44,7 @@ yarn-error.log*
 
 # idea files
 .idea
+
+# ai
+CLAUDE.md
+.cursor/rules/*
