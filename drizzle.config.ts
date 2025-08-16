@@ -4,6 +4,9 @@ import { env } from "~/env";
 
 export default {
   schema: "./src/server/db/schema.ts",
-  dialect: "singlestore",
+  dialect: "postgresql",
+  dbCredentials: {
+    url: env.DATABASE_URL,
+  },
   tablesFilter: ["cortaqui_*"],
 } satisfies Config;
