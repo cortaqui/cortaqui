@@ -91,10 +91,11 @@ export function ModalAgendamentoCliente({ open, onOpenChange, onAgendamentoCriad
     setLoading(true)
 
     // TODO: Enviar para /api/agendamentos
-    const novoAgendamento: Agendamento = {
+      const novoAgendamento: Agendamento = {
       id: Math.random().toString(36).substr(2, 9),
       cliente_user_id: clienteSelecionado.id,
-      barbeiro_user_id: barbeiroSelecionado === "any" ? barbeiros[0].id : barbeiroSelecionado,
+        barbeiro_user_id:
+          barbeiroSelecionado === "any" ? (barbeiros[0]?.id ?? "") : barbeiroSelecionado,
       servico_id: servicoSelecionado.id,
       data_hora: new Date(`${dataSelecionada.toDateString()} ${horarioSelecionado}`),
       status: "agendado",
@@ -102,7 +103,10 @@ export function ModalAgendamentoCliente({ open, onOpenChange, onAgendamentoCriad
       created_at: new Date(),
       updated_at: new Date(),
       cliente: clienteSelecionado,
-      barbeiro: barbeiroSelecionado === "any" ? barbeiros[0] : barbeiros.find((b) => b.id === barbeiroSelecionado),
+        barbeiro:
+          barbeiroSelecionado === "any"
+            ? barbeiros[0]
+            : barbeiros.find((b) => b.id === barbeiroSelecionado),
       servico: servicoSelecionado,
     }
 
@@ -264,8 +268,10 @@ export function ModalAgendamentoCliente({ open, onOpenChange, onAgendamentoCriad
                   <strong>Duração:</strong> {servicoSelecionado?.duracao_minutos} min
                 </p>
                 <p>
-                  <strong>Valor:</strong> R${" "}
-                  {servicoSelecionado?.preco_base.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  <strong>Valor:</strong> R{" "}
+                  {servicoSelecionado
+                    ? servicoSelecionado.preco_base.toLocaleString("pt-BR", { minimumFractionDigits: 2 })
+                    : "--"}
                 </p>
               </CardContent>
             </Card>
