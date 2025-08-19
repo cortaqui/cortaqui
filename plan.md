@@ -360,8 +360,6 @@ This plan provides a structured approach to modernizing the Cortaqui frontend by
 3. **Integrating Advanced Calendar Features**: The big-calendar system can be adapted to provide powerful scheduling and visualization tools
 4. **Maintaining Development Velocity**: Phased approach ensures continuous delivery while improving code quality
 
-**Estimated Timeline**: 10 weeks with 1 developer
-**Estimated Effort**: ~200-250 hours
 **Risk Level**: Low-Medium (mostly refactoring existing functionality)
 
 The plan prioritizes high-impact, low-risk changes first, ensuring quick wins while building toward more complex integrations.

@@ -14,7 +14,6 @@ O sistema abrange três módulos principais:
     - Visualização de histórico de agendamentos e agendamentos futuros.
     - Cancelamento de agendamentos (com regras de negócio).
     - Pagamento online pós-serviço.
-    - Recebimento de notificações no sistema.
 - **Módulo Barbeiro**:
     - Login.
     - Edição de perfil.
@@ -27,7 +26,6 @@ O sistema abrange três módulos principais:
     - Visualização de relatórios de faturamento e operações.
 - **Funcionalidades do Sistema**:
     - Prevenção de agendamentos duplicados.
-    - Notificações automáticas no sistema.
     - Armazenamento de histórico de pagamentos.
     - Autenticação segura via Clerk.
     - Responsividade para dispositivos móveis (PWA).
@@ -381,7 +379,6 @@ Administrador -|> User
 rectangle "Sistema Cortaqui" {
   usecase "Gerenciar Perfil" as UC_Perfil
   usecase "Autenticar Usuário" as UC_Auth
-  usecase "Receber Notificações" as UC_Notificar
 
   usecase "Visualizar Serviços/Preços" as UC_VerServicos
   usecase "Agendar Horário" as UC_Agendar
@@ -404,7 +401,6 @@ rectangle "Sistema Cortaqui" {
 
 User -- UC_Perfil
 User -- UC_Auth
-User -- UC_Notificar
 
 Cliente -- UC_VerServicos
 Cliente -- UC_Agendar
@@ -430,7 +426,6 @@ UC_Agendar ..> UC_Disponibilidade : <<include>>
 UC_Pagar ..> UC_IntPagamento : <<include>>
 
 @enduml
-
 ```
 
 ### Banco (Martin)
@@ -493,18 +488,6 @@ entity "Pagamento" as payment {
   metodo : VARCHAR(50)
 }
 
-entity "Nota_Fiscal" as invoice {
-  *nota_fiscal_id : UUID <<PK>>
-  --
-  *pagamento_id : UUID <<FK>> <<UK>>
-  numero : VARCHAR(100)
-  chave_acesso : VARCHAR(255) <<UK>>
-  xml_url : VARCHAR(512)
-  pdf_url : VARCHAR(512)
-  *data_emissao : TIMESTAMP
-  *status : ENUM('emitida', 'cancelada', 'erro')
-}
-
 entity "Disponibilidade" as availability {
   *disponibilidade_id : UUID <<PK>>
   --
@@ -524,7 +507,6 @@ user ||--o{ booking : executa {tipo_usuario = barbeiro}
 service ||--o{ booking : referente a
 
 booking ||--o| payment : gera
-payment ||--o| invoice : resulta em
 
 user ||--o{ availability : define {tipo_usuario = admin}
 user ||--o{ availability : aplica a {tipo_usuario = barbeiro}
@@ -533,7 +515,6 @@ user ||--o{ barber_service : oferece {tipo_usuario = barbeiro}
 service ||--o{ barber_service : detalhado em
 
 @enduml
-
 ```
 
 ### Sequência - Agendamento (Cliente)
