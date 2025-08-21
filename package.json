@@ -20,6 +20,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@clerk/localizations": "^3.25.3",
     "@clerk/nextjs": "^6.31.2",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/modifiers": "^9.0.0",
@@ -58,6 +59,7 @@
     "react-dom": "^19.0.0",
     "recharts": "^3.1.2",
     "sonner": "^2.0.7",
+    "svix": "^1.37.0",
     "vaul": "^1.1.2",
     "zod": "^3.24.2"
   },
