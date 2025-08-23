@@ -19,6 +19,8 @@ export const usuario = createTable("usuario", {
   hashSenha: varchar("hash_senha", { length: 150 }).notNull(),
   tipoUsuario: tipoUsuarioEnum("tipo_usuario").notNull(),
   dataCadastro: timestamp("data_cadastro", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`).$onUpdate(() => sql`CURRENT_TIMESTAMP`),
 });
 
 export const servico = createTable("servico", {
@@ -28,12 +30,14 @@ export const servico = createTable("servico", {
   duracaoMinutos: integer("duracao_minutos").notNull(), // CHECK (duracao_minutos > 0) handled in app logic
   precoBase: decimal("preco_base", { precision: 10, scale: 2 }).notNull(), // CHECK (preco_base >= 0) handled in app logic
   ativo: boolean("ativo").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`).$onUpdate(() => sql`CURRENT_TIMESTAMP`),
 });
 
 export const servicoBarbeiro = createTable("servico_barbeiro", {
   barbeiroUserId: uuid("barbeiro_user_id").notNull(),
   servicoId: uuid("servico_id").notNull(),
   precoEspecifico: decimal("preco_especifico", { precision: 10, scale: 2 }), // CHECK (preco_especifico >= 0 OR NULL) handled in app logic
+  updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`).$onUpdate(() => sql`CURRENT_TIMESTAMP`),
 }, (table) => ({
   pk: primaryKey({ columns: [table.barbeiroUserId, table.servicoId] }),
 }));
@@ -45,9 +49,11 @@ export const agendamento = createTable("agendamento", {
   status: statusAgendamentoEnum("status").notNull(),
   observacoesCliente: text("observacoes_cliente"),
   valorCobrado: decimal("valor_cobrado", { precision: 10, scale: 2 }), // CHECK (valor_cobrado >= 0) handled in app logic
+  criadoPorAdmin: boolean("criado_por_admin").notNull().default(false),
   fkServicoId: uuid("fk_Servico_servico_id").references(() => servico.servicoId, { onDelete: "cascade" }),
   fkClienteId: uuid("fk_Usuario_cliente_id").references(() => usuario.userId, { onDelete: "cascade" }),
   fkBarbeiroId: uuid("fk_Usuario_barbeiro_id").references(() => usuario.userId, { onDelete: "cascade" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`).$onUpdate(() => sql`CURRENT_TIMESTAMP`),
 });
 
 export const pagamento = createTable("pagamento", {
@@ -58,18 +64,9 @@ export const pagamento = createTable("pagamento", {
   dataPagamento: timestamp("data_pagamento", { withTimezone: true }),
   metodo: varchar("metodo", { length: 50 }),
   fkAgendamentoId: uuid("fk_Agendamento_agendamento_id").references(() => agendamento.agendamentoId, { onDelete: "cascade" }).unique(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`).$onUpdate(() => sql`CURRENT_TIMESTAMP`),
 });
 
-export const notaFiscal = createTable("nota_fiscal", {
-  notaFiscalId: uuid("nota_fiscal_id").primaryKey().defaultRandom(),
-  numero: varchar("numero", { length: 100 }),
-  chaveAcesso: varchar("chave_acesso", { length: 255 }).notNull().unique(),
-  xmlUrl: varchar("xml_url", { length: 512 }),
-  pdfUrl: varchar("pdf_url", { length: 512 }),
-  dataEmissao: timestamp("data_emissao", { withTimezone: true }).notNull(), // CHECK (data_emissao <= NOW()) handled in app logic
-  status: statusNotaEnum("status").notNull(),
-  fkPagamentoId: uuid("fk_Pagamento_pagamento_id").references(() => pagamento.pagamentoId, { onDelete: "cascade" }).unique(),
-});
 
 export const disponibilidade = createTable("disponibilidade", {
   disponibilidadeId: uuid("disponibilidade_id").primaryKey().defaultRandom(),
@@ -78,8 +75,10 @@ export const disponibilidade = createTable("disponibilidade", {
   horaFim: time("hora_fim").notNull(), // CHECK (hora_fim > hora_inicio) handled in app logic
   tipo: tipoDisponibilidadeEnum("tipo").notNull(),
   dataEspecifica: date("data_especifica"),
+  recorrente: boolean("recorrente").notNull().default(true),
   fkAdminId: uuid("fk_Usuario_admin_id").references(() => usuario.userId, { onDelete: "cascade" }),
   fkBarbeiroId: uuid("fk_Usuario_barbeiro_id").references(() => usuario.userId, { onDelete: "cascade" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`).$onUpdate(() => sql`CURRENT_TIMESTAMP`),
 });
 
 // Relationships
@@ -125,18 +124,10 @@ export const agendamentoRelations = relations(agendamento, ({ one, many }) => ({
   pagamento: many(pagamento),
 }));
 
-export const pagamentoRelations = relations(pagamento, ({ one, many }) => ({
+export const pagamentoRelations = relations(pagamento, ({ one }) => ({
   agendamento: one(agendamento, {
     fields: [pagamento.fkAgendamentoId],
     references: [agendamento.agendamentoId],
-  }),
-  notaFiscal: many(notaFiscal),
-}));
-
-export const notaFiscalRelations = relations(notaFiscal, ({ one }) => ({
-  pagamento: one(pagamento, {
-    fields: [notaFiscal.fkPagamentoId],
-    references: [pagamento.pagamentoId],
   }),
 }));
 
