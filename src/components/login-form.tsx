@@ -18,11 +18,11 @@ export function LoginForm({
       <div className="grid gap-6">
         <div className="grid gap-3">
           <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" placeholder="m@example.com" required />
+          <Input id="email" type="email" placeholder="nome@gmail.com" required />
         </div>
         <div className="grid gap-3">
           <div className="flex items-center">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="senha">Password</Label>
             <a
               href="#"
               className="ml-auto text-sm underline-offset-4 hover:underline"
