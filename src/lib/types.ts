@@ -7,6 +7,7 @@ export interface Usuario {
   tipo: "admin" | "barbeiro" | "cliente"
   created_at: Date
   updated_at: Date
+  deleted_at?: Date
 }
 
 export interface Servico {
@@ -44,6 +45,7 @@ export interface Disponibilidade {
   hora_inicio: string // HH:mm
   hora_fim: string // HH:mm
   tipo: "trabalho" | "bloqueio"
+  recorrente?: boolean
   data_especifica?: Date // Para bloqueios específicos
   created_at: Date
   updated_at: Date
