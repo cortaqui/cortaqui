@@ -10,37 +10,35 @@ import {
   type EventColor,
 } from "~/components/event-calendar";
 
-// Etiquettes data for calendar filtering
+// Etiquettes data for calendar filtering - Representing barbeiros
 export const etiquettes = [
   {
-    id: "my-events",
-    name: "My Events",
+    id: "barbeiro-carlos",
+    name: "Carlos Santos",
     color: "emerald" as EventColor,
     isActive: true,
+    barbeiroId: "2",
   },
   {
-    id: "marketing-team",
-    name: "Marketing Team",
+    id: "barbeiro-pedro",
+    name: "Pedro Oliveira",
     color: "orange" as EventColor,
     isActive: true,
+    barbeiroId: "3",
   },
   {
-    id: "interviews",
-    name: "Interviews",
-    color: "violet" as EventColor,
-    isActive: true,
-  },
-  {
-    id: "events-planning",
-    name: "Events Planning",
+    id: "barbeiro-joao",
+    name: "João Silva",
     color: "blue" as EventColor,
     isActive: true,
+    barbeiroId: "1",
   },
   {
-    id: "holidays",
-    name: "Holidays",
-    color: "rose" as EventColor,
+    id: "outros-barbeiros",
+    name: "Outros Barbeiros",
+    color: "violet" as EventColor,
     isActive: true,
+    barbeiroId: "outros",
   },
 ];
 

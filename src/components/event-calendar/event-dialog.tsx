@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { RiCalendarLine, RiDeleteBinLine } from "@remixicon/react";
 import { format, isBefore } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 import type { CalendarEvent, EventColor } from "~/components/event-calendar";
 import { cn } from "~/lib/utils";
@@ -76,7 +77,7 @@ export function EventDialog({
   useEffect(() => {
     if (event) {
       setTitle(event.title || "");
-      setDescription(event.description || "");
+      setDescription(event.description ?? "");
 
       const start = new Date(event.start);
       const end = new Date(event.end);
@@ -85,9 +86,9 @@ export function EventDialog({
       setEndDate(end);
       setStartTime(formatTimeForInput(start));
       setEndTime(formatTimeForInput(end));
-      setAllDay(event.allDay || false);
-      setLocation(event.location || "");
-      setColor((event.color as EventColor) || "sky");
+      setAllDay(event.allDay ?? false);
+      setLocation(event.location ?? "");
+      setColor(event.color ?? ("sky" as EventColor));
       setError(null); // Reset error when opening dialog
     } else {
       resetForm();
@@ -169,7 +170,7 @@ export function EventDialog({
     const eventTitle = title.trim() ? title : "(no title)";
 
     onSave({
-      id: event?.id || "",
+      id: event?.id ?? "",
       title: eventTitle,
       description,
       start,
@@ -186,7 +187,7 @@ export function EventDialog({
     }
   };
 
-  // Updated color options to match types.ts
+  // Updated color options to match barbeiros
   const colorOptions: Array<{
     value: EventColor;
     label: string;
@@ -195,33 +196,27 @@ export function EventDialog({
   }> = [
       {
         value: "blue",
-        label: "Blue",
+        label: "João Silva",
         bgClass: "bg-blue-400 data-[state=checked]:bg-blue-400",
         borderClass: "border-blue-400 data-[state=checked]:border-blue-400",
       },
       {
-        value: "violet",
-        label: "Violet",
-        bgClass: "bg-violet-400 data-[state=checked]:bg-violet-400",
-        borderClass: "border-violet-400 data-[state=checked]:border-violet-400",
-      },
-      {
-        value: "rose",
-        label: "Rose",
-        bgClass: "bg-rose-400 data-[state=checked]:bg-rose-400",
-        borderClass: "border-rose-400 data-[state=checked]:border-rose-400",
-      },
-      {
         value: "emerald",
-        label: "Emerald",
+        label: "Carlos Santos",
         bgClass: "bg-emerald-400 data-[state=checked]:bg-emerald-400",
         borderClass: "border-emerald-400 data-[state=checked]:border-emerald-400",
       },
       {
         value: "orange",
-        label: "Orange",
+        label: "Pedro Oliveira",
         bgClass: "bg-orange-400 data-[state=checked]:bg-orange-400",
         borderClass: "border-orange-400 data-[state=checked]:border-orange-400",
+      },
+      {
+        value: "violet",
+        label: "Outros Barbeiros",
+        bgClass: "bg-violet-400 data-[state=checked]:bg-violet-400",
+        borderClass: "border-violet-400 data-[state=checked]:border-violet-400",
       },
     ];
 
@@ -229,11 +224,11 @@ export function EventDialog({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>{event?.id ? "Edit Event" : "Create Event"}</DialogTitle>
+          <DialogTitle>{event?.id ? "Editar Agendamento" : "Novo Agendamento"}</DialogTitle>
           <DialogDescription className="sr-only">
             {event?.id
-              ? "Edit the details of this event"
-              : "Add a new event to your calendar"}
+              ? "Edite os detalhes deste agendamento"
+              : "Adicione um novo agendamento ao calendário"}
           </DialogDescription>
         </DialogHeader>
         {error && (
@@ -243,27 +238,29 @@ export function EventDialog({
         )}
         <div className="grid gap-4 py-4">
           <div className="*:not-first:mt-1.5">
-            <Label htmlFor="title">Title</Label>
+            <Label htmlFor="title">Título</Label>
             <Input
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              placeholder="Ex: Corte + Barba - João Silva"
             />
           </div>
 
           <div className="*:not-first:mt-1.5">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">Observações</Label>
             <Textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              placeholder="Observações adicionais sobre o agendamento..."
               rows={3}
             />
           </div>
 
           <div className="flex gap-4">
             <div className="flex-1 *:not-first:mt-1.5">
-              <Label htmlFor="start-date">Start Date</Label>
+              <Label htmlFor="start-date">Data de Início</Label>
               <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
                 <PopoverTrigger asChild>
                   <Button
@@ -280,7 +277,7 @@ export function EventDialog({
                         !startDate && "text-muted-foreground",
                       )}
                     >
-                      {startDate ? format(startDate, "PPP") : "Pick a date"}
+                      {startDate ? format(startDate, "PPP", { locale: ptBR }) : "Selecione a data"}
                     </span>
                     <RiCalendarLine
                       size={16}
@@ -312,10 +309,10 @@ export function EventDialog({
 
             {!allDay && (
               <div className="min-w-28 *:not-first:mt-1.5">
-                <Label htmlFor="start-time">Start Time</Label>
+                <Label htmlFor="start-time">Horário</Label>
                 <Select value={startTime} onValueChange={setStartTime}>
                   <SelectTrigger id="start-time">
-                    <SelectValue placeholder="Select time" />
+                    <SelectValue placeholder="Selecione o horário" />
                   </SelectTrigger>
                   <SelectContent>
                     {timeOptions.map((option) => (
@@ -331,7 +328,7 @@ export function EventDialog({
 
           <div className="flex gap-4">
             <div className="flex-1 *:not-first:mt-1.5">
-              <Label htmlFor="end-date">End Date</Label>
+              <Label htmlFor="end-date">Data de Término</Label>
               <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
                 <PopoverTrigger asChild>
                   <Button
@@ -348,7 +345,7 @@ export function EventDialog({
                         !endDate && "text-muted-foreground",
                       )}
                     >
-                      {endDate ? format(endDate, "PPP") : "Pick a date"}
+                      {endDate ? format(endDate, "PPP", { locale: ptBR }) : "Selecione a data"}
                     </span>
                     <RiCalendarLine
                       size={16}
@@ -377,10 +374,10 @@ export function EventDialog({
 
             {!allDay && (
               <div className="min-w-28 *:not-first:mt-1.5">
-                <Label htmlFor="end-time">End Time</Label>
+                <Label htmlFor="end-time">Horário Final</Label>
                 <Select value={endTime} onValueChange={setEndTime}>
                   <SelectTrigger id="end-time">
-                    <SelectValue placeholder="Select time" />
+                    <SelectValue placeholder="Selecione o horário" />
                   </SelectTrigger>
                   <SelectContent>
                     {timeOptions.map((option) => (
@@ -400,20 +397,21 @@ export function EventDialog({
               checked={allDay}
               onCheckedChange={(checked) => setAllDay(checked === true)}
             />
-            <Label htmlFor="all-day">All day</Label>
+            <Label htmlFor="all-day">Dia inteiro</Label>
           </div>
 
           <div className="*:not-first:mt-1.5">
-            <Label htmlFor="location">Location</Label>
+            <Label htmlFor="location">Local</Label>
             <Input
               id="location"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
+              placeholder="Barbearia Tradição do Boleiro"
             />
           </div>
           <fieldset className="space-y-4">
             <legend className="text-foreground text-sm leading-none font-medium">
-              Etiquette
+              Barbeiro
             </legend>
             <RadioGroup
               className="flex gap-1.5"
@@ -451,9 +449,9 @@ export function EventDialog({
           )}
           <div className="flex flex-1 justify-end gap-2">
             <Button variant="outline" onClick={onClose}>
-              Cancel
+              Cancelar
             </Button>
-            <Button onClick={handleSave}>Save</Button>
+            <Button onClick={handleSave}>Salvar</Button>
           </div>
         </DialogFooter>
       </DialogContent>
