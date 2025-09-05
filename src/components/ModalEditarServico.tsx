@@ -37,9 +37,9 @@ export function ModalEditarServico({ open, onOpenChange, servico, onServicoEdita
   useEffect(() => {
     if (servico) {
       setNome(servico.nome)
-      setDescricao(servico.descricao || "")
+      setDescricao(servico.descricao ?? "")
       setDuracaoMinutos(servico.duracao_minutos.toString())
-      setPrecoBase(servico.preco_base.toString())
+      setPrecoBase(Number(servico.preco_base).toFixed(2).replace('.', ','))
       setAtivo(servico.ativo)
     }
   }, [servico])
@@ -49,20 +49,37 @@ export function ModalEditarServico({ open, onOpenChange, servico, onServicoEdita
     if (!servico) return
 
     setLoading(true)
-
-    // TODO: Enviar para /api/servicos/[id]
-    const servicoEditado: Servico = {
-      ...servico,
-      nome,
-      descricao: descricao || undefined,
-      duracao_minutos: Number.parseInt(duracaoMinutos),
-      preco_base: Number.parseFloat(precoBase),
-      ativo,
-      updated_at: new Date(),
+    try {
+      const precoForApi = precoBase.replace(/\./g, "").replace(",", ".")
+      const resp = await fetch(`/api/admin/servicos/${encodeURIComponent(servico.id)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome,
+          descricao: descricao || undefined,
+          duracaoMinutos: Number.parseInt(duracaoMinutos),
+          precoBase: precoForApi,
+          ativo,
+        }),
+      })
+      if (!resp.ok) throw new Error("Falha ao salvar serviço")
+      const row = (await resp.json()) as unknown as { servicoId: string; nome: string; descricao: string | null; duracaoMinutos: number; precoBase: string | number; ativo: boolean; updatedAt: string | Date }
+      const servicoEditado: Servico = {
+        id: row.servicoId ?? servico.id,
+        nome: row.nome,
+        descricao: row.descricao ?? undefined,
+        duracao_minutos: Number(row.duracaoMinutos ?? duracaoMinutos),
+        preco_base: Number(row.precoBase ?? 0),
+        ativo: Boolean(row.ativo),
+        created_at: new Date(servico.created_at),
+        updated_at: new Date(row.updatedAt),
+      }
+      onServicoEditado(servicoEditado)
+    } catch {
+      // noop: could add toast later
+    } finally {
+      setLoading(false)
     }
-
-    onServicoEditado(servicoEditado)
-    setLoading(false)
   }
 
   if (!servico) return null
@@ -96,32 +113,46 @@ export function ModalEditarServico({ open, onOpenChange, servico, onServicoEdita
                 rows={3}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
+            <div className="grid grid-cols-2 gap-4 items-start">
+              <div className="grid gap-2 min-w-2">
                 <Label htmlFor="duracao">Duração (min)</Label>
                 <Select value={duracaoMinutos} onValueChange={setDuracaoMinutos} required>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Selecione a duração" />
                   </SelectTrigger>
                   <SelectContent>
-                    {[15, 30, 45, 60, 75, 90, 105, 120].map((minutos) => (
-                      <SelectItem key={minutos} value={minutos.toString()}>
-                        {minutos} minutos
-                      </SelectItem>
-                    ))}
+                    {[30, 60, 90, 120, 150, 180].map((minutos) => {
+                      const horas = Math.floor(minutos / 60)
+                      const mins = minutos % 60
+                      const label = minutos < 60
+                        ? `${minutos} minutos`
+                        : `${horas}:${String(mins).padStart(2, '0')} ${horas === 1 ? 'hora' : 'horas'}`
+                      return (
+                        <SelectItem key={minutos} value={minutos.toString()}>
+                          {label}
+                        </SelectItem>
+                      )
+                    })}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid gap-2">
+              <div className="grid gap-2 min-w-0">
                 <Label htmlFor="preco">Preço Base (R$)</Label>
                 <Input
                   id="preco"
-                  type="number"
-                  step="0.01"
+                  inputMode="decimal"
                   value={precoBase}
-                  onChange={(e) => setPrecoBase(e.target.value)}
-                  placeholder="25.00"
-                  min="0"
+                  onChange={(e) => {
+                    let v = e.target.value.replace(/[^\d,\. ,]/g, "").replace(/\s+/g, "")
+                    v = v.replace(/\./g, ",")
+                    const firstComma = v.indexOf(",")
+                    if (firstComma !== -1) {
+                      v = v.slice(0, firstComma + 1) + v.slice(firstComma + 1).replace(/,/g, "")
+                    }
+                    if (v.startsWith(",") && v.length > 1) v = `0${v}`
+                    setPrecoBase(v)
+                  }}
+                  placeholder="25,00"
                   required
                 />
               </div>

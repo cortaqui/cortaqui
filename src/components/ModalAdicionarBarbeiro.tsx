@@ -15,6 +15,17 @@ import {
 import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
 import type { Usuario } from "~/lib/types"
+import { UserAutocomplete, type Suggestion } from "~/components/UserAutocomplete"
+
+type CreateResponse = {
+  userId?: string
+  id?: string
+  nome?: string
+  email?: string
+  telefone?: string
+  dataCadastro?: string
+  updatedAt?: string
+}
 
 interface ModalAdicionarBarbeiroProps {
   open: boolean
@@ -27,30 +38,52 @@ export function ModalAdicionarBarbeiro({ open, onOpenChange, onBarbeiroAdicionad
   const [email, setEmail] = useState("")
   const [telefone, setTelefone] = useState("")
   const [loading, setLoading] = useState(false)
+  const [clerkUserId, setClerkUserId] = useState<string | undefined>(undefined)
+
+  // Autocomplete handled by UserAutocomplete component
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-
-    // TODO: Enviar para /api/admin/barbeiros
-    const novoBarbeiro: Usuario = {
-      id: Math.random().toString(36).substr(2, 9),
-      clerk_user_id: `clerk_barbeiro_${Math.random().toString(36).substr(2, 9)}`,
-      nome,
-      email,
-      telefone,
-      tipo: "barbeiro",
-      created_at: new Date(),
-      updated_at: new Date(),
+    try {
+      const res = await fetch('/api/admin/barbeiros', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nome, email, telefone, clerkUserId }),
+      })
+      if (!res.ok) throw new Error('Falha ao criar barbeiro')
+      const rowJson = (await res.json()) as unknown
+      const row: CreateResponse = (rowJson && typeof rowJson === 'object' ? rowJson as CreateResponse : {})
+      const novoBarbeiro: Usuario = {
+        id: row.userId ?? row.id ?? crypto.randomUUID(),
+        clerk_user_id: clerkUserId ?? '',
+        nome: row.nome ?? nome,
+        email: row.email ?? email,
+        telefone: row.telefone ?? telefone,
+        tipo: 'barbeiro',
+        created_at: row.dataCadastro ? new Date(row.dataCadastro) : new Date(),
+        updated_at: row.updatedAt ? new Date(row.updatedAt) : new Date(),
+      }
+      onBarbeiroAdicionado(novoBarbeiro)
+      // limpar
+      setNome("")
+      setEmail("")
+      setTelefone("")
+      setClerkUserId(undefined)
+      onOpenChange(false)
+    } catch {
+      // noop
+    } finally {
+      setLoading(false)
     }
+  }
 
-    onBarbeiroAdicionado(novoBarbeiro)
-
-    // Limpar formulário
-    setNome("")
-    setEmail("")
-    setTelefone("")
-    setLoading(false)
+  function formatPhone(input: string) {
+    const digits = input.replace(/\D/g, "").slice(0, 11)
+    if (digits.length <= 2) return `(${digits}`
+    if (digits.length <= 6) return `(${digits.slice(0,2)}) ${digits.slice(2)}`
+    if (digits.length <= 10) return `(${digits.slice(0,2)}) ${digits.slice(2,6)}-${digits.slice(6)}`
+    return `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`
   }
 
   return (
@@ -62,16 +95,23 @@ export function ModalAdicionarBarbeiro({ open, onOpenChange, onBarbeiroAdicionad
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="nome">Nome Completo</Label>
-              <Input
-                id="nome"
-                value={nome}
-                onChange={(e) => setNome(e.target.value)}
-                placeholder="Ex: João Silva"
-                required
-              />
-            </div>
+            <UserAutocomplete
+              value={nome}
+              onChange={(v) => setNome(v)}
+              onSelect={(s: Suggestion) => {
+                setNome(s.name)
+                setEmail(s.email ?? '')
+                setTelefone(s.phone ?? '')
+                setClerkUserId(s.id)
+              }}
+              searchApi="/api/admin/barbeiros/search"
+              label="Nome Completo"
+              placeholder="Ex: João Silva"
+            />
+              {clerkUserId && (
+                <p className="text-xs text-muted-foreground">Usuário encontrado no Clerk. Campos preenchidos automaticamente.</p>
+              )}
+
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -88,7 +128,7 @@ export function ModalAdicionarBarbeiro({ open, onOpenChange, onBarbeiroAdicionad
               <Input
                 id="telefone"
                 value={telefone}
-                onChange={(e) => setTelefone(e.target.value)}
+                onChange={(e) => setTelefone(formatPhone(e.target.value))}
                 placeholder="(11) 99999-9999"
                 required
               />

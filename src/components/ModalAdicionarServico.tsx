@@ -33,23 +33,64 @@ export function ModalAdicionarServico({ open, onOpenChange, onServicoAdicionado 
   const [ativo, setAtivo] = useState(true)
   const [loading, setLoading] = useState(false)
 
+  type AdminServicoRow = {
+    servicoId: string
+    nome: string
+    descricao: string | null
+    duracaoMinutos: number
+    precoBase: string | number
+    ativo: boolean
+    updatedAt: string | Date
+    createdAt?: string | Date
+  }
+
+  function sanitizePrecoInput(value: string): string {
+    // allow digits, comma or dot while typing; convert dots to comma; keep only first comma
+    let v = value.replace(/[^\d,\. ,]/g, "").replace(/\s+/g, "")
+    v = v.replace(/\./g, ",")
+    const firstComma = v.indexOf(",")
+    if (firstComma !== -1) {
+      // remove extra commas beyond the first
+      v = v.slice(0, firstComma + 1) + v.slice(firstComma + 1).replace(/,/g, "")
+    }
+    // prevent leading comma without integer by allowing "", or prefix 0 only if the string starts with a comma and has following digits
+    if (v.startsWith(",") && v.length > 1) v = `0${v}`
+    return v
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
-    // TODO: Enviar para /api/servicos
-    const novoServico: Servico = {
-      id: Math.random().toString(36).substr(2, 9),
-      nome,
-      descricao: descricao || undefined,
-      duracao_minutos: Number.parseInt(duracaoMinutos),
-      preco_base: Number.parseFloat(precoBase),
-      ativo,
-      created_at: new Date(),
-      updated_at: new Date(),
+    try {
+      const precoForApi = precoBase.replace(/\./g, "").replace(",", ".")
+      const resp = await fetch("/api/admin/servicos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome,
+          descricao: descricao || undefined,
+          duracaoMinutos: Number.parseInt(duracaoMinutos),
+          precoBase: precoForApi,
+          ativo,
+        }),
+      })
+      if (!resp.ok) throw new Error("Falha ao criar serviço")
+      const row = (await resp.json()) as unknown as AdminServicoRow
+      const novoServico: Servico = {
+        id: row.servicoId,
+        nome: row.nome,
+        descricao: row.descricao ?? undefined,
+        duracao_minutos: Number(row.duracaoMinutos),
+        preco_base: Number(row.precoBase),
+        ativo: Boolean(row.ativo),
+        created_at: new Date(row.createdAt ?? row.updatedAt),
+        updated_at: new Date(row.updatedAt),
+      }
+      onServicoAdicionado(novoServico)
+    } catch {
+      // noop: could add toast later
     }
-
-    onServicoAdicionado(novoServico)
 
     // Limpar formulário
     setNome("")
@@ -89,32 +130,37 @@ export function ModalAdicionarServico({ open, onOpenChange, onServicoAdicionado 
                 rows={3}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
+            <div className="grid grid-cols-2 gap-4 items-start">
+              <div className="grid gap-2 min-w-0">
                 <Label htmlFor="duracao">Duração (min)</Label>
                 <Select value={duracaoMinutos} onValueChange={setDuracaoMinutos} required>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Selecione a duração" />
                   </SelectTrigger>
                   <SelectContent>
-                    {[15, 30, 45, 60, 75, 90, 105, 120].map((minutos) => (
-                      <SelectItem key={minutos} value={minutos.toString()}>
-                        {minutos} minutos
-                      </SelectItem>
-                    ))}
+                    {[30, 60, 90, 120, 150, 180].map((minutos) => {
+                      const horas = Math.floor(minutos / 60)
+                      const mins = minutos % 60
+                      const label = minutos < 60
+                        ? `${minutos} minutos`
+                        : `${horas}:${String(mins).padStart(2, '0')} ${horas === 1 ? 'hora' : 'horas'}`
+                      return (
+                        <SelectItem key={minutos} value={minutos.toString()}>
+                          {label}
+                        </SelectItem>
+                      )
+                    })}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid gap-2">
+              <div className="grid gap-2 min-w-0">
                 <Label htmlFor="preco">Preço Base (R$)</Label>
                 <Input
                   id="preco"
-                  type="number"
-                  step="0.01"
+                  inputMode="decimal"
                   value={precoBase}
-                  onChange={(e) => setPrecoBase(e.target.value)}
-                  placeholder="25.00"
-                  min="0"
+                  onChange={(e) => setPrecoBase(sanitizePrecoInput(e.target.value))}
+                  placeholder="25,00"
                   required
                 />
               </div>

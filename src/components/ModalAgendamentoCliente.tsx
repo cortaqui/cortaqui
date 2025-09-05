@@ -1,17 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "~/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "~/components/ui/dialog"
 import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select"
 import { Calendar } from "~/components/ui/calendar"
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
-import { getClientes, getServicosAtivos, getBarbeiros } from "~/lib/mock-data"
-import type { Usuario, Servico, Agendamento } from "~/lib/types"
-import { User, Plus, Scissors, Clock, DollarSign } from "lucide-react"
+import type { Agendamento } from "~/lib/types"
+import { UserAutocomplete, type Suggestion } from "~/components/UserAutocomplete"
+import { Clock, DollarSign } from "lucide-react"
+import { computeDailyWorkIntervals, generateAvailableSlots, type DisponibilidadeItem } from "~/lib/agendamento-utils"
 
 interface ModalAgendamentoClienteProps {
   open: boolean
@@ -19,321 +18,340 @@ interface ModalAgendamentoClienteProps {
   onAgendamentoCriado: (agendamento: Agendamento) => void
 }
 
+function isValidEmail(email: string) {
+  return /.+@.+\..+/.test(email)
+}
+
+function isValidPhone(phone: string) {
+  // allow digits, spaces, (), -; formatted below
+  const digits = phone.replace(/\D/g, "")
+  return digits.length >= 10
+}
+
+function formatPhone(input: string) {
+  const digits = input.replace(/\D/g, "").slice(0, 11)
+  if (digits.length <= 2) return `(${digits}`
+  if (digits.length <= 6) return `(${digits.slice(0,2)}) ${digits.slice(2)}`
+  if (digits.length <= 10) return `(${digits.slice(0,2)}) ${digits.slice(2,6)}-${digits.slice(6)}`
+  return `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`
+}
+
 export function ModalAgendamentoCliente({ open, onOpenChange, onAgendamentoCriado }: ModalAgendamentoClienteProps) {
-  const [etapa, setEtapa] = useState<"cliente" | "servico" | "agendamento">("cliente")
-  const [clienteSelecionado, setClienteSelecionado] = useState<Usuario | null>(null)
-  const [servicoSelecionado, setServicoSelecionado] = useState<Servico | null>(null)
-  const [barbeiroSelecionado, setBarbeiroSelecionado] = useState<string>("any")
-  const [dataSelecionada, setDataSelecionada] = useState<Date | undefined>(new Date())
-  const [horarioSelecionado, setHorarioSelecionado] = useState<string>("")
+  // Left column state
+  const [clienteQuery, setClienteQuery] = useState("")
+  const [clienteSel, setClienteSel] = useState<Suggestion | null>(null)
+  const [clienteNome, setClienteNome] = useState("")
+  const [clienteEmail, setClienteEmail] = useState("")
+  const [clienteTelefone, setClienteTelefone] = useState("")
+
+  const [servicoQuery, setServicoQuery] = useState("")
+  const [servicoSel, setServicoSel] = useState<{ id: string; nome: string; duracaoMin?: number; precoBase?: number } | null>(null)
+
+  const [barbeiroQuery, setBarbeiroQuery] = useState("")
+  const [barbeiroSel, setBarbeiroSel] = useState<Suggestion | null>(null)
+
+  // Right column state
+  const [date, setDate] = useState<Date | undefined>(undefined)
+  const [slots, setSlots] = useState<Date[]>([])
+  const [slotSel, setSlotSel] = useState<Date | null>(null)
+  const [dispon, setDispon] = useState<DisponibilidadeItem[]>([])
+  const [bookings, setBookings] = useState<{ inicio: Date; fim: Date }[]>([])
   const [loading, setLoading] = useState(false)
 
-  // Dados para novo cliente
-  const [nomeNovoCliente, setNomeNovoCliente] = useState("")
-  const [telefoneNovoCliente, setTelefoneNovoCliente] = useState("")
-  const [emailNovoCliente, setEmailNovoCliente] = useState("")
+  // Derived
+  const clienteValidExisting = !!clienteSel
+  const clienteValidNew = clienteNome.trim().length > 0 && isValidEmail(clienteEmail) && (clienteTelefone === "" || isValidPhone(clienteTelefone))
+  const clienteReady = clienteValidExisting || clienteValidNew
 
-  const [clientes] = useState<Usuario[]>(getClientes())
-  const [servicos] = useState<Servico[]>(getServicosAtivos())
-  const [barbeiros] = useState<Usuario[]>(getBarbeiros())
+  const duracaoMin = servicoSel?.duracaoMin ?? 30
 
-  const horariosDisponiveis = [
-    "09:00",
-    "09:30",
-    "10:00",
-    "10:30",
-    "11:00",
-    "11:30",
-    "14:00",
-    "14:30",
-    "15:00",
-    "15:30",
-    "16:00",
-    "16:30",
-    "17:00",
-  ]
+  const precoFinal = useMemo(() => {
+    return servicoSel?.precoBase ?? 0
+  }, [servicoSel])
 
-  const handleSelecionarCliente = (cliente: Usuario) => {
-    setClienteSelecionado(cliente)
-    setEtapa("servico")
-  }
+  // Fetch details after selecting service
+  useEffect(() => {
+    if (!servicoSel?.id) return
+    void (async () => {
+      try {
+        const res = await fetch(`/api/admin/servicos/${servicoSel.id}`)
+        if (res.ok) {
+          const sUnknown: unknown = await res.json()
+          const s: Record<string, unknown> = (sUnknown && typeof sUnknown === 'object') ? (sUnknown as Record<string, unknown>) : {}
+          setServicoSel((prev) => {
+            if (!prev) return prev
+            const nomeSrv = typeof s.nome === 'string' ? s.nome : prev.nome
+            const dur = typeof s.duracaoMinutos === 'number' ? s.duracaoMinutos : (prev.duracaoMin ?? 30)
+            const preco = typeof s.precoBase === 'string' ? Number(s.precoBase) : (typeof s.precoBase === 'number' ? s.precoBase : (prev.precoBase ?? 0))
+            return { id: prev.id, nome: nomeSrv, duracaoMin: dur, precoBase: preco }
+          })
+        }
+      } catch {}
+    })()
+  }, [servicoSel?.id])
 
-  const handleCriarNovoCliente = async () => {
-    if (!nomeNovoCliente || !telefoneNovoCliente) return
+  // Fetch disponibilidade after selecting barber
+  useEffect(() => {
+    if (!barbeiroSel?.id) return
+    void (async () => {
+      try {
+        const res = await fetch(`/api/disponibilidade?barbeiroId=${barbeiroSel.id}`)
+        if (res.ok) {
+          const rowsUnknown: unknown = await res.json()
+          const rows = Array.isArray(rowsUnknown) ? (rowsUnknown as DisponibilidadeItem[]) : []
+          setDispon(rows)
+        }
+      } catch {}
+    })()
+    // fetch bookings
+    void (async () => {
+      try {
+        const res = await fetch(`/api/agendamentos`, { cache: "no-store" })
+        if (res.ok) {
+          const rowsUnknown: unknown = await res.json()
+          const rows = Array.isArray(rowsUnknown) ? (rowsUnknown as Array<Record<string, unknown>>) : []
+          const filtered = rows.filter((r) => String(r.fkBarbeiroId ?? r.barbeiro_user_id) === barbeiroSel.id)
+          setBookings(filtered.map((r) => {
+            const start = new Date(String(r.dataHoraInicio ?? r.data_hora))
+            const endVal = (r.dataHoraFim as string | undefined) ?? undefined
+            const end = endVal ? new Date(endVal) : new Date(start.getTime() + (duracaoMin * 60000))
+            return { inicio: start, fim: end }
+          }))
+        }
+      } catch {}
+    })()
+  }, [barbeiroSel?.id, duracaoMin])
 
-    setLoading(true)
-
-    // TODO: Enviar para /api/admin/clientes
-    const novoCliente: Usuario = {
-      id: Math.random().toString(36).substr(2, 9),
-      clerk_user_id: `clerk_cliente_${Math.random().toString(36).substr(2, 9)}`,
-      nome: nomeNovoCliente,
-      email: emailNovoCliente,
-      telefone: telefoneNovoCliente,
-      tipo: "cliente",
-      created_at: new Date(),
-      updated_at: new Date(),
+  // Recompute slots when inputs change
+  useEffect(() => {
+    if (!barbeiroSel?.id || !date || !servicoSel?.id) { setSlots([]); setSlotSel(null); return }
+    const eff = computeDailyWorkIntervals(dispon, barbeiroSel.id, date)
+    const dayBookings = bookings.filter((b) => b.inicio.getFullYear() === date.getFullYear() && b.inicio.getMonth() === date.getMonth() && b.inicio.getDate() === date.getDate())
+    const slotDates = generateAvailableSlots(
+      eff,
+      dayBookings.map((b) => ({ barbeiroId: String(barbeiroSel.id), inicio: b.inicio, fim: b.fim })),
+      date,
+      duracaoMin,
+      30,
+    ).filter((d) => d.getTime() > Date.now())
+    setSlots(slotDates)
+    // reset selected if not present
+    if (slotSel && !slotDates.find((d) => d.getTime() === slotSel.getTime())) {
+      setSlotSel(null)
     }
+  }, [barbeiroSel?.id, date, dispon, bookings, duracaoMin, servicoSel?.id, slotSel])
 
-    setClienteSelecionado(novoCliente)
-    setEtapa("servico")
+  function resetAll() {
+    setClienteQuery("")
+    setClienteSel(null)
+    setClienteNome("")
+    setClienteEmail("")
+    setClienteTelefone("")
+    setServicoQuery("")
+    setServicoSel(null)
+    setBarbeiroQuery("")
+    setBarbeiroSel(null)
+    setDate(undefined)
+    setSlots([])
+    setSlotSel(null)
+    setDispon([])
+    setBookings([])
     setLoading(false)
   }
 
-  const handleSelecionarServico = (servico: Servico) => {
-    setServicoSelecionado(servico)
-    setEtapa("agendamento")
-  }
+  const canCreate = clienteReady && !!servicoSel?.id && !!barbeiroSel?.id && !!slotSel
 
-  const handleConfirmarAgendamento = async () => {
-    if (!clienteSelecionado || !servicoSelecionado || !dataSelecionada || !horarioSelecionado) return
-
-    setLoading(true)
-
-    // TODO: Enviar para /api/agendamentos
-      const novoAgendamento: Agendamento = {
-      id: Math.random().toString(36).substr(2, 9),
-      cliente_user_id: clienteSelecionado.id,
-        barbeiro_user_id:
-          barbeiroSelecionado === "any" ? (barbeiros[0]?.id ?? "") : barbeiroSelecionado,
-      servico_id: servicoSelecionado.id,
-      data_hora: new Date(`${dataSelecionada.toDateString()} ${horarioSelecionado}`),
-      status: "agendado",
-      preco_final: servicoSelecionado.preco_base,
-      created_at: new Date(),
-      updated_at: new Date(),
-      cliente: clienteSelecionado,
-        barbeiro:
-          barbeiroSelecionado === "any"
-            ? barbeiros[0]
-            : barbeiros.find((b) => b.id === barbeiroSelecionado),
-      servico: servicoSelecionado,
+  async function ensureCliente(): Promise<{ id: string; email: string; nome: string } | null> {
+    if (clienteSel?.id && clienteSel.email) return { id: clienteSel.id, email: clienteSel.email, nome: clienteSel.name }
+    // create new
+    if (!clienteValidNew) return null
+    try {
+      const res = await fetch("/api/admin/clientes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome: clienteNome.trim(), email: clienteEmail.trim(), telefone: clienteTelefone.trim() || undefined })
+      })
+      if (!res.ok) return null
+      const rowUnknown: unknown = await res.json()
+      let row: Record<string, unknown> = {}
+      if (rowUnknown && typeof rowUnknown === 'object') {
+        row = rowUnknown as Record<string, unknown>
+      }
+      const id = typeof row.userId === 'string' ? row.userId : (typeof row.id === 'string' ? row.id : '')
+      const email = typeof row.email === 'string' ? row.email : ''
+      const nome = typeof row.nome === 'string' ? row.nome : ''
+      return id ? { id, email, nome } : null
+    } catch {
+      return null
     }
-
-    onAgendamentoCriado(novoAgendamento)
-    handleFecharModal()
-    setLoading(false)
   }
 
-  const handleFecharModal = () => {
-    setEtapa("cliente")
-    setClienteSelecionado(null)
-    setServicoSelecionado(null)
-    setBarbeiroSelecionado("any")
-    setDataSelecionada(new Date())
-    setHorarioSelecionado("")
-    setNomeNovoCliente("")
-    setTelefoneNovoCliente("")
-    setEmailNovoCliente("")
-    onOpenChange(false)
+  async function handleCriar() {
+    if (!canCreate || !slotSel || !servicoSel?.id || !barbeiroSel?.email) return
+    setLoading(true)
+    const cliente = await ensureCliente()
+    if (!cliente) { setLoading(false); return }
+    try {
+      // Need barber email for API; fetch by id not implemented here, use selected suggestion which includes email
+      const payload = {
+        clienteEmail: cliente.email,
+        barbeiroEmail: barbeiroSel.email,
+        servicoId: servicoSel.id,
+        dataHoraInicio: slotSel.toISOString(),
+        dataHoraFim: new Date(slotSel.getTime() + (duracaoMin * 60000)).toISOString(),
+        valorCobrado: String(precoFinal.toFixed(2)),
+      }
+      const res = await fetch("/api/agendamentos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
+      if (!res.ok) { console.error("create agendamento falhou", await res.text()); setLoading(false); return }
+      const rowUnknown: unknown = await res.json()
+      let row: Record<string, unknown> = {}
+      if (rowUnknown && typeof rowUnknown === 'object') {
+        row = rowUnknown as Record<string, unknown>
+      }
+      const novo: Agendamento = {
+        id: String(row.agendamentoId ?? row.id),
+        cliente_user_id: typeof row.fkClienteId === 'string' ? row.fkClienteId : '',
+        barbeiro_user_id: typeof row.fkBarbeiroId === 'string' ? row.fkBarbeiroId : '',
+        servico_id: typeof row.fkServicoId === 'string' ? row.fkServicoId : '',
+        data_hora: new Date(typeof row.dataHoraInicio === 'string' ? row.dataHoraInicio : new Date().toISOString()),
+        status: "confirmado",
+        preco_final: precoFinal,
+        created_at: new Date(),
+        updated_at: new Date(),
+            cliente: { id: cliente.id, clerk_user_id: "", nome: cliente.nome, email: cliente.email, telefone: clienteTelefone, tipo: "cliente", created_at: new Date(), updated_at: new Date() },
+        barbeiro: barbeiroSel ? { id: barbeiroSel.id, clerk_user_id: "", nome: barbeiroSel.name, email: barbeiroSel.email ?? "", telefone: barbeiroSel.phone ?? "", tipo: "barbeiro", created_at: new Date(), updated_at: new Date() } : undefined,
+        servico: servicoSel ? { id: servicoSel.id, nome: servicoSel.nome, duracao_minutos: duracaoMin, preco_base: servicoSel.precoBase ?? 0, ativo: true, created_at: new Date(), updated_at: new Date() } : undefined,
+      }
+      onAgendamentoCriado(novo)
+      resetAll()
+      onOpenChange(false)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+    }
   }
+
+  const emailValid = (typeof clienteSel?.email === 'string') ? true : isValidEmail(clienteEmail)
 
   return (
-    <Dialog open={open} onOpenChange={handleFecharModal}>
-      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={(v) => { if (!v) { resetAll(); onOpenChange(false) } }}>
+      <DialogContent className="sm:max-w-[900px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Agendar para Cliente</DialogTitle>
-          <DialogDescription>
-            {etapa === "cliente" && "Selecione um cliente existente ou crie um novo"}
-            {etapa === "servico" && "Escolha o serviço desejado"}
-            {etapa === "agendamento" && "Defina o barbeiro, data e horário"}
-          </DialogDescription>
+          <DialogDescription>Preencha os dados e selecione a data/horário disponível</DialogDescription>
         </DialogHeader>
 
-        {etapa === "cliente" && (
-          <Tabs defaultValue="existente" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="existente">Cliente Existente</TabsTrigger>
-              <TabsTrigger value="novo">Novo Cliente</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="existente" className="space-y-4">
-              <div className="max-h-60 overflow-y-auto space-y-2">
-                {clientes.map((cliente) => (
-                  <Card
-                    key={cliente.id}
-                    className="cursor-pointer hover:shadow-md transition-shadow"
-                    onClick={() => handleSelecionarCliente(cliente)}
-                  >
-                    <CardContent className="p-3">
-                      <div className="flex items-center gap-3">
-                        <User className="h-4 w-4" />
-                        <div>
-                          <p className="font-medium">{cliente.nome}</p>
-                          <p className="text-sm text-muted-foreground">{cliente.telefone}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="novo" className="space-y-4">
-              <div className="grid gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="nome">Nome Completo</Label>
-                  <Input
-                    id="nome"
-                    value={nomeNovoCliente}
-                    onChange={(e) => setNomeNovoCliente(e.target.value)}
-                    placeholder="Nome do cliente"
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="telefone">Telefone</Label>
-                  <Input
-                    id="telefone"
-                    value={telefoneNovoCliente}
-                    onChange={(e) => setTelefoneNovoCliente(e.target.value)}
-                    placeholder="(11) 99999-9999"
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email (opcional)</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={emailNovoCliente}
-                    onChange={(e) => setEmailNovoCliente(e.target.value)}
-                    placeholder="email@exemplo.com"
-                  />
-                </div>
-                <Button onClick={handleCriarNovoCliente} disabled={loading}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  {loading ? "Criando..." : "Criar Cliente"}
-                </Button>
-              </div>
-            </TabsContent>
-          </Tabs>
-        )}
-
-        {etapa === "servico" && (
-          <div className="space-y-4">
-            <div className="grid gap-3 max-h-60 overflow-y-auto">
-              {servicos.map((servico) => (
-                <Card
-                  key={servico.id}
-                  className="cursor-pointer hover:shadow-md transition-shadow"
-                  onClick={() => handleSelecionarServico(servico)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Scissors className="h-5 w-5" />
-                        <div>
-                          <h3 className="font-semibold">{servico.nome}</h3>
-                          {servico.descricao && <p className="text-sm text-muted-foreground">{servico.descricao}</p>}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Clock className="h-4 w-4" />
-                          {servico.duracao_minutos} min
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <DollarSign className="h-4 w-4" />
-                          <span className="font-semibold">
-                            R$ {servico.preco_base.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-            <Button variant="outline" onClick={() => setEtapa("cliente")}>
-              Voltar
-            </Button>
-          </div>
-        )}
-
-        {etapa === "agendamento" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Left column */}
           <div className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Resumo</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <p>
-                  <strong>Cliente:</strong> {clienteSelecionado?.nome}
-                </p>
-                <p>
-                  <strong>Serviço:</strong> {servicoSelecionado?.nome}
-                </p>
-                <p>
-                  <strong>Duração:</strong> {servicoSelecionado?.duracao_minutos} min
-                </p>
-                <p>
-                  <strong>Valor:</strong> R{" "}
-                  {servicoSelecionado
-                    ? servicoSelecionado.preco_base.toLocaleString("pt-BR", { minimumFractionDigits: 2 })
-                    : "--"}
-                </p>
+              <CardHeader><CardTitle className="text-base">Cliente</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                <UserAutocomplete
+                  value={clienteQuery}
+                  onChange={setClienteQuery}
+                  onSelect={(s) => { setClienteSel(s); setClienteQuery(s.name); setClienteNome(s.name); setClienteEmail(s.email ?? ""); setClienteTelefone(s.phone ?? "") }}
+                  searchApi="/api/admin/clientes/search"
+                  label="Cliente"
+                  placeholder="Buscar cliente por nome ou email"
+                />
+                <div className="grid gap-2">
+                  <Label>Nome</Label>
+                  <Input value={clienteNome} onChange={(e) => { setClienteNome(e.target.value); setClienteSel(null) }} placeholder="Nome completo" />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Email</Label>
+                  <Input type="email" value={clienteEmail} onChange={(e) => { setClienteEmail(e.target.value); setClienteSel(null) }} placeholder="email@exemplo.com" />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Telefone</Label>
+                  <Input value={clienteTelefone} onChange={(e) => setClienteTelefone(formatPhone(e.target.value))} placeholder="(11) 99999-9999" />
+                </div>
               </CardContent>
             </Card>
 
-            <div className="grid gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="barbeiro">Barbeiro (Opcional)</Label>
-                <Select value={barbeiroSelecionado} onValueChange={setBarbeiroSelecionado}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Qualquer barbeiro disponível" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="any">Qualquer barbeiro disponível</SelectItem>
-                    {barbeiros.map((barbeiro) => (
-                      <SelectItem key={barbeiro.id} value={barbeiro.id}>
-                        {barbeiro.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <Card>
+              <CardHeader><CardTitle className="text-base">Serviço</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                <UserAutocomplete
+                  value={servicoQuery}
+                  onChange={setServicoQuery}
+                  onSelect={(s) => { setServicoSel({ id: s.id, nome: s.name }); setServicoQuery(s.name) }}
+                  searchApi="/api/admin/servicos/search"
+                  label="Serviço"
+                  placeholder="Buscar serviço"
+                />
+                {servicoSel && (
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="flex items-center gap-2"><Clock className="h-4 w-4" /> {duracaoMin} min</div>
+                    <div className="flex items-center gap-2"><DollarSign className="h-4 w-4" /> R$ {precoFinal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-              <div className="grid gap-2">
-                <Label>Data</Label>
+            <Card>
+              <CardHeader><CardTitle className="text-base">Barbeiro</CardTitle></CardHeader>
+              <CardContent>
+                <UserAutocomplete
+                  value={barbeiroQuery}
+                  onChange={setBarbeiroQuery}
+                  onSelect={(s) => { setBarbeiroSel(s); setBarbeiroQuery(s.name) }}
+                  searchApi="/api/admin/barbeiros/search"
+                  label="Barbeiro"
+                  placeholder="Buscar barbeiro"
+                />
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right column */}
+          <div className="space-y-4">
+            <Card>
+              <CardHeader><CardTitle className="text-base">Data</CardTitle></CardHeader>
+              <CardContent>
                 <Calendar
                   mode="single"
-                  selected={dataSelecionada}
-                  onSelect={setDataSelecionada}
-                  disabled={(date) => date < new Date() || date.getDay() === 0}
+                  selected={date}
+                  onSelect={(d) => setDate(d ?? undefined)}
+                  disabled={(d) => d < new Date()}
                   className="rounded-md border"
                 />
-              </div>
+              </CardContent>
+            </Card>
 
-              {dataSelecionada && (
-                <div className="grid gap-2">
-                  <Label>Horários Disponíveis</Label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {horariosDisponiveis.map((horario) => (
-                      <Button
-                        key={horario}
-                        variant={horarioSelecionado === horario ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setHorarioSelecionado(horario)}
-                      >
-                        {horario}
-                      </Button>
-                    ))}
+            <Card>
+              <CardHeader><CardTitle className="text-base">Horários Disponíveis</CardTitle></CardHeader>
+              <CardContent>
+                {!barbeiroSel?.id || !servicoSel?.id || !date ? (
+                  <p className="text-sm text-muted-foreground">Selecione cliente, serviço, barbeiro e data.</p>
+                ) : slots.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhum horário disponível.</p>
+                ) : (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                    {slots.map((d) => {
+                      const label = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+                      const selected = slotSel?.getTime() === d.getTime()
+                      return (
+                        <Button key={d.toISOString()} variant={selected ? "default" : "outline"} size="sm" onClick={() => setSlotSel(d)}>
+                          {label}
+                        </Button>
+                      )
+                    })}
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </CardContent>
+            </Card>
 
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setEtapa("servico")}>
-                Voltar
-              </Button>
-              <Button onClick={handleConfirmarAgendamento} disabled={!horarioSelecionado || loading} className="flex-1">
-                {loading ? "Agendando..." : "Confirmar Agendamento"}
+              <Button variant="outline" onClick={() => { resetAll(); onOpenChange(false) }}>Cancelar</Button>
+              <Button className="flex-1" disabled={!canCreate || loading || !emailValid} onClick={() => void handleCriar()}>
+                {loading ? "Agendando..." : "Criar Agendamento"}
               </Button>
             </div>
           </div>
-        )}
+        </div>
       </DialogContent>
     </Dialog>
   )
