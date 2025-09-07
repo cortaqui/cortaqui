@@ -1,25 +1,73 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card"
+import { useEffect, useState } from "react"
+import { Card, CardContent } from "~/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
 import { Button } from "~/components/ui/button"
-import { Badge } from "~/components/ui/badge"
-import { Calendar, Clock, User, Scissors, X, CreditCard } from 'lucide-react'
-import { getAgendamentosByCliente } from "~/lib/mock-data"
 import type { Agendamento } from "~/lib/types"
 import { ModalCancelarAgendamento } from "~/components/ModalCancelarAgendamento"
 import { ModalPagamento } from "~/components/ModalPagamento"
+import { AgendamentoCard } from "~/components/AgendamentoCard"
+import { useIsMobile } from "~/hooks/use-mobile"
+import { ClerkAuthButtons } from "~/components/ClerkAuthButtons"
+import { MobileNavSheet } from "~/components/MobileNavSheet"
+import { Logo } from "~/components/logo"
 
 export default function MeusAgendamentosPage() {
-  // TODO: Pegar ID do cliente logado via Clerk
-  const clienteId = "4" // Mock - Maria Costa
-  const [agendamentos] = useState<Agendamento[]>(getAgendamentosByCliente(clienteId))
+  const isMobile = useIsMobile()
+  const [agendamentos, setAgendamentos] = useState<Agendamento[]>([])
   const [modalCancelarOpen, setModalCancelarOpen] = useState(false)
   const [modalPagamentoOpen, setModalPagamentoOpen] = useState(false)
   const [agendamentoSelecionado, setAgendamentoSelecionado] = useState<Agendamento | null>(null)
 
-  // TODO: Buscar dados de /api/agendamentos/cliente/[id]
+  // Load my agendamentos
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch('/api/cliente/agendamentos/mine', { cache: 'no-store' })
+        if (!res.ok) return
+        const rowsUnknown: unknown = await res.json()
+        const rows = Array.isArray(rowsUnknown) ? (rowsUnknown as Array<{ ag: Record<string, unknown>; srv?: Record<string, unknown>; barb?: Record<string, unknown> }>) : []
+        const mapped: Agendamento[] = rows.map((row) => {
+          const r = row.ag
+          const srv = row.srv
+          const barb = row.barb
+          return {
+            id: typeof r.agendamentoId === 'string' ? r.agendamentoId : (typeof r.id === 'string' ? r.id : ''),
+            cliente_user_id: typeof r.fkClienteId === 'string' ? r.fkClienteId : '',
+            barbeiro_user_id: typeof r.fkBarbeiroId === 'string' ? r.fkBarbeiroId : '',
+            servico_id: typeof r.fkServicoId === 'string' ? r.fkServicoId : '',
+            data_hora: new Date(typeof r.dataHoraInicio === 'string' ? r.dataHoraInicio : new Date().toISOString()),
+            status: (typeof r.status === 'string' ? r.status : 'PENDENTE').toLowerCase() as Agendamento['status'],
+            preco_final: Number((r.valorCobrado as string | number | undefined) ?? (srv?.precoBase as string | number | undefined) ?? 0),
+            created_at: new Date(typeof r.dataCadastro === 'string' ? r.dataCadastro : new Date().toISOString()),
+            updated_at: new Date(typeof r.updatedAt === 'string' ? r.updatedAt : new Date().toISOString()),
+            servico: srv ? {
+              id: typeof srv.id === 'string' ? srv.id : '',
+              nome: typeof srv.nome === 'string' ? srv.nome : '',
+              descricao: undefined,
+              duracao_minutos: Number((srv.duracaoMinutos as number | undefined) ?? 30),
+              preco_base: Number((srv.precoBase as string | number | undefined) ?? 0),
+              ativo: true,
+              created_at: new Date(),
+              updated_at: new Date(),
+            } : undefined,
+            barbeiro: barb ? {
+              id: typeof barb.id === 'string' ? barb.id : '',
+              clerk_user_id: '',
+              nome: typeof barb.nome === 'string' ? barb.nome : '',
+              email: typeof barb.email === 'string' ? barb.email : '',
+              telefone: typeof barb.telefone === 'string' ? barb.telefone : '',
+              tipo: 'barbeiro',
+              created_at: new Date(),
+              updated_at: new Date(),
+            } : undefined,
+          }
+        })
+        setAgendamentos(mapped)
+      } catch {}
+    })()
+  }, [])
 
   const proximosAgendamentos = agendamentos.filter(
     (a) => a.data_hora > new Date() && a.status !== "cancelado"
@@ -39,81 +87,32 @@ export default function MeusAgendamentosPage() {
     setModalPagamentoOpen(true)
   }
 
-  const AgendamentoCard = ({ agendamento, showActions = false }: { agendamento: Agendamento, showActions?: boolean }) => (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Scissors className="h-4 w-4" />
-              <span className="font-semibold">{agendamento.servico?.nome}</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <User className="h-4 w-4" />
-              <span>{agendamento.barbeiro?.nome}</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Calendar className="h-4 w-4" />
-              <span>{agendamento.data_hora.toLocaleDateString("pt-BR")}</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>
-                {agendamento.data_hora.toLocaleTimeString("pt-BR", { 
-                  hour: "2-digit", 
-                  minute: "2-digit" 
-                })}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="font-semibold">
-                R$ {agendamento.preco_final.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-              </span>
-              <Badge variant={
-                agendamento.status === "cancelado" ? "destructive" :
-                agendamento.status === "concluido" ? "default" : "secondary"
-              }>
-                {agendamento.status === "agendado" && "Agendado"}
-                {agendamento.status === "confirmado" && "Confirmado"}
-                {agendamento.status === "concluido" && "Concluído"}
-                {agendamento.status === "cancelado" && "Cancelado"}
-              </Badge>
-            </div>
-          </div>
-          {showActions && (
-            <div className="flex flex-col gap-2">
-              {agendamento.status === "concluido" && (
-                <Button 
-                  size="sm" 
-                  onClick={() => handlePagarAgendamento(agendamento)}
-                >
-                  <CreditCard className="h-4 w-4 mr-1" />
-                  Pagar
-                </Button>
-              )}
-              {(agendamento.status === "agendado" || agendamento.status === "confirmado") && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => handleCancelarAgendamento(agendamento)}
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  Cancelar
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  )
 
   return (
     <div className="container mx-auto p-4 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Meus Agendamentos</h1>
-        <p className="text-muted-foreground">Visualize e gerencie seus agendamentos</p>
-      </div>
+      <header className="sticky top-0 z-20 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+        <div className="flex items-center justify-between py-3">
+          <Logo text="Cortaqui" />
+          {isMobile ? (
+            <div className="flex items-center gap-3">
+              <ClerkAuthButtons />
+              <MobileNavSheet
+                items={[
+                  { title: "Agendar", url: "/agendar" },
+                  { title: "Meus Agendamentos", url: "/meus-agendamentos" },
+                ]}
+              />
+            </div>
+          ) : (
+            <nav className="flex items-center gap-4">
+              <a href="/agendar" className="text-sm hover:underline">Agendar</a>
+              <a href="/meus-agendamentos" className="text-sm hover:underline">Meus Agendamentos</a>
+              <ClerkAuthButtons />
+            </nav>
+          )}
+        </div>
+      </header>
+      {/* Page header removed per spec */}
 
       <Tabs defaultValue="proximos" className="space-y-4">
         <TabsList>
@@ -137,10 +136,12 @@ export default function MeusAgendamentosPage() {
             </Card>
           ) : (
             proximosAgendamentos.map((agendamento) => (
-              <AgendamentoCard 
-                key={agendamento.id} 
-                agendamento={agendamento} 
+              <AgendamentoCard
+                key={agendamento.id}
+                agendamento={agendamento}
                 showActions={true}
+                onCancel={handleCancelarAgendamento}
+                onPay={handlePagarAgendamento}
               />
             ))
           )}
@@ -155,10 +156,11 @@ export default function MeusAgendamentosPage() {
             </Card>
           ) : (
             historicoAgendamentos.map((agendamento) => (
-              <AgendamentoCard 
-                key={agendamento.id} 
-                agendamento={agendamento} 
+              <AgendamentoCard
+                key={agendamento.id}
+                agendamento={agendamento}
                 showActions={agendamento.status === "concluido"}
+                onPay={handlePagarAgendamento}
               />
             ))
           )}
@@ -169,10 +171,19 @@ export default function MeusAgendamentosPage() {
         open={modalCancelarOpen}
         onOpenChange={setModalCancelarOpen}
         agendamento={agendamentoSelecionado}
-        onAgendamentoCancelado={() => {
-          // TODO: Atualizar lista de agendamentos
-          setModalCancelarOpen(false)
-          setAgendamentoSelecionado(null)
+        onAgendamentoCancelado={async () => {
+          try {
+            const id = agendamentoSelecionado?.id
+            if (!id) return
+            const res = await fetch(`/api/cliente/agendamentos/${id}/cancelar`, { method: 'POST' })
+            if (!res.ok) {
+              console.error('Falha ao cancelar agendamento', await res.text())
+            }
+            setAgendamentos((prev) => prev.map((a) => a.id === id ? { ...a, status: 'cancelado' } : a))
+          } finally {
+            setModalCancelarOpen(false)
+            setAgendamentoSelecionado(null)
+          }
         }}
       />
 

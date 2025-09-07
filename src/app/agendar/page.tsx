@@ -1,95 +1,162 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "~/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card"
 import { Calendar } from "~/components/ui/calendar"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select"
-import { Scissors, Clock, DollarSign, User, CalendarDays } from "lucide-react"
-import { getServicosAtivos, getBarbeiros } from "~/lib/mock-data"
-import type { Servico, Usuario } from "~/lib/types"
+import { Scissors, User, CalendarDays } from "lucide-react"
+import { useIsMobile } from "~/hooks/use-mobile"
+import { ClerkAuthButtons } from "~/components/ClerkAuthButtons"
+import { MobileNavSheet } from "~/components/MobileNavSheet"
+import { Logo } from "~/components/logo"
+import { UserAutocomplete, type Suggestion } from "~/components/UserAutocomplete"
+import { SignedIn, SignedOut } from "@clerk/nextjs"
+import { computeDailyWorkIntervals, generateAvailableSlots, type DisponibilidadeItem } from "~/lib/agendamento-utils"
 
 export default function AgendarPage() {
-  const [servicos] = useState<Servico[]>(getServicosAtivos())
-  const [barbeiros] = useState<Usuario[]>(getBarbeiros())
-  const [servicoSelecionado, setServicoSelecionado] = useState<Servico | null>(null)
-  const [barbeiroSelecionado, setBarbeiroSelecionado] = useState<string>("any")
-  const [dataSelecionada, setDataSelecionada] = useState<Date | undefined>(new Date())
-  const [horarioSelecionado, setHorarioSelecionado] = useState<string>("")
+  const isMobile = useIsMobile()
+  const [servicoQuery, setServicoQuery] = useState("")
+  const [servicoSel, setServicoSel] = useState<{ id: string; nome: string; duracaoMin?: number; precoBase?: number } | null>(null)
+  const [barbeiroQuery, setBarbeiroQuery] = useState("")
+  const [barbeiroSel, setBarbeiroSel] = useState<Suggestion | null>(null)
+  const [date, setDate] = useState<Date | undefined>(undefined)
+  const [slots, setSlots] = useState<Date[]>([])
+  const [slotSel, setSlotSel] = useState<Date | null>(null)
+  const [dispon, setDispon] = useState<DisponibilidadeItem[]>([])
+  const [bookings, setBookings] = useState<{ inicio: Date; fim: Date }[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  // TODO: Buscar dados de /api/servicos e /api/disponibilidade
+  const duracaoMin = servicoSel?.duracaoMin ?? 30
+  const precoFinal = useMemo(() => servicoSel?.precoBase ?? 0, [servicoSel])
 
-  const horariosDisponiveis = [
-    "09:00",
-    "09:30",
-    "10:00",
-    "10:30",
-    "11:00",
-    "11:30",
-    "14:00",
-    "14:30",
-    "15:00",
-    "15:30",
-    "16:00",
-    "16:30",
-    "17:00",
-  ]
+  // Auth handled via Clerk SignedIn/SignedOut components
 
-  const handleSelecionarServico = (servico: Servico) => {
-    setServicoSelecionado(servico)
-  }
+  useEffect(() => {
+    if (!servicoSel?.id) return
+    void (async () => {
+      try {
+        const res = await fetch(`/api/cliente/servicos/${servicoSel.id}`)
+        if (res.ok) {
+          const sUnknown: unknown = await res.json()
+          let s: Record<string, unknown> = {}
+          if (sUnknown && typeof sUnknown === 'object') {
+            s = sUnknown as Record<string, unknown>
+          }
+          setServicoSel((prev) => {
+            if (!prev) return prev
+            const nomeSrv = typeof s.nome === 'string' ? s.nome : prev.nome
+            const dur = typeof s.duracaoMinutos === 'number' ? s.duracaoMinutos : (prev.duracaoMin ?? 30)
+            // drizzle decimal likely comes as string in row.precoBase
+            const precoRaw = s.precoBase
+            const preco = typeof precoRaw === 'string' ? Number(precoRaw) : (typeof precoRaw === 'number' ? precoRaw : (prev.precoBase ?? 0))
+            return { id: prev.id, nome: nomeSrv, duracaoMin: dur, precoBase: preco }
+          })
+        }
+      } catch {}
+    })()
+  }, [servicoSel?.id])
 
-  const handleConfirmarAgendamento = () => {
-    // TODO: Enviar para /api/agendamentos
-    console.log("Agendamento:", {
-      servico: servicoSelecionado,
-      barbeiro: barbeiroSelecionado,
-      data: dataSelecionada,
-      horario: horarioSelecionado,
-    })
-  }
+  useEffect(() => {
+    if (!barbeiroSel?.id) return
+    void (async () => {
+      try {
+        const res = await fetch(`/api/cliente/disponibilidade?barbeiroId=${barbeiroSel.id}`)
+        if (res.ok) {
+          const rowsUnknown: unknown = await res.json()
+          const rows = Array.isArray(rowsUnknown) ? (rowsUnknown as DisponibilidadeItem[]) : []
+          setDispon(rows)
+        }
+      } catch {}
+    })()
+    if (!date) return
+    void (async () => {
+      try {
+        const dateISO = date.toISOString().slice(0,10)
+        const res = await fetch(`/api/cliente/agendamentos?barbeiroId=${barbeiroSel.id}&date=${dateISO}`, { cache: "no-store" })
+        if (res.ok) {
+          const rowsUnknown: unknown = await res.json()
+          const rows = Array.isArray(rowsUnknown) ? (rowsUnknown as Array<Record<string, unknown>>) : []
+          const filtered = rows.filter((r) => String(r.fkBarbeiroId ?? r.barbeiro_user_id) === barbeiroSel.id)
+          setBookings(filtered.map((r) => {
+            const start = new Date(String(r.dataHoraInicio ?? r.data_hora))
+            const endVal = (r.dataHoraFim as string | undefined) ?? undefined
+            const end = endVal ? new Date(endVal) : new Date(start.getTime() + (duracaoMin * 60000))
+            return { inicio: start, fim: end }
+          }))
+        }
+      } catch {}
+    })()
+  }, [barbeiroSel?.id, duracaoMin, date])
+
+  useEffect(() => {
+    if (!barbeiroSel?.id || !date || !servicoSel?.id) { setSlots([]); setSlotSel(null); return }
+    const eff = computeDailyWorkIntervals(dispon, barbeiroSel.id, date)
+    const dayBookings = bookings.filter((b) => b.inicio.getFullYear() === date.getFullYear() && b.inicio.getMonth() === date.getMonth() && b.inicio.getDate() === date.getDate())
+    const slotDates = generateAvailableSlots(
+      eff,
+      dayBookings.map((b) => ({ barbeiroId: String(barbeiroSel.id), inicio: b.inicio, fim: b.fim })),
+      date,
+      duracaoMin,
+      30,
+    ).filter((d) => d.getTime() > Date.now())
+    setSlots(slotDates)
+    if (slotSel && !slotDates.find((d) => d.getTime() === slotSel.getTime())) setSlotSel(null)
+  }, [barbeiroSel?.id, date, dispon, bookings, duracaoMin, servicoSel?.id, slotSel])
 
   return (
     <div className="container mx-auto p-4 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Agendar Serviço</h1>
-        <p className="text-muted-foreground">Escolha o serviço, barbeiro e horário desejado</p>
-      </div>
+      <header className="sticky top-0 z-20 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+        <div className="flex items-center justify-between py-3">
+          <Logo text="Cortaqui" />
+          {isMobile ? (
+            <div className="flex items-center gap-3">
+              <ClerkAuthButtons />
+              <MobileNavSheet
+                items={[
+                  { title: "Agendar", url: "/agendar", icon: CalendarDays },
+                  { title: "Meus Agendamentos", url: "/meus-agendamentos", icon: User },
+                ]}
+              />
+            </div>
+          ) : (
+            <nav className="flex items-center gap-4">
+              <a href="/agendar" className="text-sm hover:underline">Agendar</a>
+              <a href="/meus-agendamentos" className="text-sm hover:underline">Meus Agendamentos</a>
+              <ClerkAuthButtons />
+            </nav>
+          )}
+        </div>
+      </header>
 
-      {!servicoSelecionado ? (
+      <SignedOut>
+        <div className="flex flex-col items-center justify-center py-16 text-center gap-4">
+          <h2 className="text-xl font-semibold">Você precisa estar logado para agendar</h2>
+          <ClerkAuthButtons />
+        </div>
+      </SignedOut>
+
+      <SignedIn>
+      {!servicoSel ? (
         <div>
           <h2 className="text-xl font-semibold mb-4">Escolha um Serviço</h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {servicos.map((servico) => (
-              <Card
-                key={servico.id}
-                className="cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => handleSelecionarServico(servico)}
-              >
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Scissors className="h-5 w-5" />
-                    {servico.nome}
-                  </CardTitle>
-                  {servico.descricao && <CardDescription>{servico.descricao}</CardDescription>}
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Clock className="h-4 w-4" />
-                      {servico.duracao_minutos} min
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4" />
-                      <span className="font-semibold">
-                        R$ {servico.preco_base.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Scissors className="h-5 w-5" />
+                Serviço
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <UserAutocomplete
+                value={servicoQuery}
+                onChange={setServicoQuery}
+                onSelect={(s) => { setServicoSel({ id: s.id, nome: s.name }); setServicoQuery(s.name) }}
+                searchApi="/api/servicos/search"
+                placeholder="Buscar serviço"
+              />
+            </CardContent>
+          </Card>
         </div>
       ) : (
         <div className="space-y-6">
@@ -100,14 +167,14 @@ export default function AgendarPage() {
             <CardContent>
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-semibold">{servicoSelecionado.nome}</h3>
-                  <p className="text-sm text-muted-foreground">{servicoSelecionado.duracao_minutos} minutos</p>
+                  <h3 className="font-semibold">{servicoSel.nome}</h3>
+                  <p className="text-sm text-muted-foreground">{duracaoMin} minutos</p>
                 </div>
                 <div className="text-right">
                   <p className="font-semibold">
-                    R$ {servicoSelecionado.preco_base.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    R$ {precoFinal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                   </p>
-                  <Button variant="outline" size="sm" onClick={() => setServicoSelecionado(null)}>
+                  <Button variant="outline" size="sm" onClick={() => { setServicoSel(null); setBarbeiroSel(null); setDate(undefined); setSlots([]); setSlotSel(null) }}>
                     Alterar
                   </Button>
                 </div>
@@ -120,24 +187,19 @@ export default function AgendarPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <User className="h-5 w-5" />
-                  Escolher Barbeiro (Opcional)
+                   Escolher Barbeiro
                 </CardTitle>
-                <CardDescription>Deixe em branco para qualquer barbeiro disponível</CardDescription>
+                <CardDescription>Selecione o profissional desejado</CardDescription>
               </CardHeader>
               <CardContent>
-                <Select value={barbeiroSelecionado} onValueChange={setBarbeiroSelecionado}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Qualquer barbeiro disponível" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="any">Qualquer barbeiro disponível</SelectItem>
-                    {barbeiros.map((barbeiro) => (
-                      <SelectItem key={barbeiro.id} value={barbeiro.id}>
-                        {barbeiro.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <UserAutocomplete
+                  value={barbeiroQuery}
+                  onChange={setBarbeiroQuery}
+                  onSelect={(s) => { setBarbeiroSel(s); setBarbeiroQuery(s.name) }}
+                  searchApi="/api/cliente/barbeiros/search"
+                  placeholder="Buscar barbeiro"
+                />
+                {!barbeiroSel && <p className="text-xs text-destructive mt-2">Selecione um barbeiro para continuar.</p>}
               </CardContent>
             </Card>
 
@@ -151,8 +213,8 @@ export default function AgendarPage() {
               <CardContent>
                 <Calendar
                   mode="single"
-                  selected={dataSelecionada}
-                  onSelect={setDataSelecionada}
+                  selected={date}
+                  onSelect={setDate}
                   disabled={(date) => date < new Date() || date.getDay() === 0}
                   className="rounded-md border"
                 />
@@ -160,12 +222,12 @@ export default function AgendarPage() {
             </Card>
           </div>
 
-          {dataSelecionada && (
+          {date && (
             <Card>
               <CardHeader>
                 <CardTitle>Horários Disponíveis</CardTitle>
                 <CardDescription>
-                  {dataSelecionada.toLocaleDateString("pt-BR", {
+                  {date.toLocaleDateString("pt-BR", {
                     weekday: "long",
                     year: "numeric",
                     month: "long",
@@ -174,23 +236,26 @@ export default function AgendarPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-4 gap-2">
-                  {horariosDisponiveis.map((horario) => (
-                    <Button
-                      key={horario}
-                      variant={horarioSelecionado === horario ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setHorarioSelecionado(horario)}
-                    >
-                      {horario}
-                    </Button>
-                  ))}
-                </div>
+                {slots.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhum horário disponível nesta data. Escolha outra data.</p>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {slots.map((d) => {
+                      const label = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+                      const selected = slotSel?.getTime() === d.getTime()
+                      return (
+                        <Button key={d.toISOString()} variant={selected ? "default" : "outline"} size="sm" onClick={() => setSlotSel(d)}>
+                          {label}
+                        </Button>
+                      )
+                    })}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
 
-          {horarioSelecionado && (
+          {slotSel && barbeiroSel && (
             <Card>
               <CardHeader>
                 <CardTitle>Confirmar Agendamento</CardTitle>
@@ -198,33 +263,52 @@ export default function AgendarPage() {
               <CardContent>
                 <div className="space-y-2 mb-4">
                   <p>
-                    <strong>Serviço:</strong> {servicoSelecionado.nome}
+                    <strong>Serviço:</strong> {servicoSel.nome}
                   </p>
                   <p>
-                    <strong>Barbeiro:</strong>{" "}
-                    {barbeiroSelecionado
-                      ? barbeiros.find((b) => b.id === barbeiroSelecionado)?.nome
-                      : "Qualquer barbeiro disponível"}
+                    <strong>Barbeiro:</strong> {barbeiroSel?.name ?? "Qualquer barbeiro disponível"}
                   </p>
                   <p>
-                    <strong>Data:</strong> {dataSelecionada?.toLocaleDateString("pt-BR")}
+                    <strong>Data:</strong> {date?.toLocaleDateString("pt-BR")}
                   </p>
                   <p>
-                    <strong>Horário:</strong> {horarioSelecionado}
+                    <strong>Horário:</strong> {slotSel.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                   </p>
                   <p>
-                    <strong>Valor:</strong> R${" "}
-                    {servicoSelecionado.preco_base.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    <strong>Valor:</strong> R$ {precoFinal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                   </p>
                 </div>
-                <Button onClick={handleConfirmarAgendamento} className="w-full">
-                  Confirmar Agendamento
+                {error && <p className="text-sm text-destructive mb-2">{error}</p>}
+                <Button onClick={async () => {
+                  try {
+                    setError(null)
+                    setLoading(true)
+                    const payload = {
+                      clienteEmail: undefined, // server derives by role (client)
+                      barbeiroEmail: barbeiroSel?.email ?? '',
+                      servicoId: servicoSel.id,
+                      dataHoraInicio: slotSel.toISOString(),
+                      dataHoraFim: new Date(slotSel.getTime() + (duracaoMin * 60000)).toISOString(),
+                      valorCobrado: String(precoFinal.toFixed(2)),
+                    }
+                    if (!barbeiroSel?.email) { setError('Selecione um barbeiro'); return }
+                    const res = await fetch('/api/cliente/agendamentos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+                    if (!res.ok) { setError('Erro ao criar agendamento'); return }
+                    window.location.href = '/meus-agendamentos'
+                  } catch {
+                    setError('Erro ao criar agendamento')
+                  } finally {
+                    setLoading(false)
+                  }
+                }} className="w-full" disabled={loading}>
+                  {loading ? 'Agendando...' : 'Confirmar Agendamento'}
                 </Button>
               </CardContent>
             </Card>
           )}
         </div>
       )}
+      </SignedIn>
     </div>
   )
 }
