@@ -1,269 +1,113 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card"
-import { Badge } from "~/components/ui/badge"
-import { Button } from "~/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
-import { Calendar } from "~/components/ui/calendar"
-import { CalendarIcon, Clock, User, ChevronLeft, ChevronRight } from "lucide-react"
-import { getAgendamentosByBarbeiro } from "~/lib/mock-data"
+import { useEffect, useState } from "react"
 import type { Agendamento } from "~/lib/types"
+import { PageHeader } from "~/components/PageHeader"
+import { CalendarProvider } from "~/components/event-calendar/calendar-context"
+import { AgendamentosCalendar } from "~/components/AgendamentosCalendar"
 
 export default function AgendaBarbeiroPage() {
-  // TODO: Pegar ID do barbeiro logado via Clerk
-  const barbeiroId = "2" // Mock - Carlos Santos
-  const [agendamentos] = useState<Agendamento[]>(getAgendamentosByBarbeiro(barbeiroId))
-  const [dataSelecionada, setDataSelecionada] = useState<Date>(new Date())
+  const [agendamentos, setAgendamentos] = useState<Agendamento[]>([])
 
-  // TODO: Buscar dados de /api/barbeiro/agenda
-
-  const agendamentosHoje = agendamentos.filter((a) => a.data_hora.toDateString() === new Date().toDateString())
-
-  const agendamentosDia = agendamentos.filter((a) => a.data_hora.toDateString() === dataSelecionada.toDateString())
-
-  const proximosAgendamentos = agendamentos
-    .filter((a) => a.data_hora > new Date())
-    .sort((a, b) => a.data_hora.getTime() - b.data_hora.getTime())
-
-  // Gerar agenda semanal
-  const getAgendaSemana = () => {
-    const inicioSemana = new Date(dataSelecionada)
-    inicioSemana.setDate(dataSelecionada.getDate() - dataSelecionada.getDay())
-
-    const diasSemana = []
-    for (let i = 0; i < 7; i++) {
-      const dia = new Date(inicioSemana)
-      dia.setDate(inicioSemana.getDate() + i)
-
-      const agendamentosDia = agendamentos.filter((a) => a.data_hora.toDateString() === dia.toDateString())
-
-      diasSemana.push({
-        data: dia,
-        agendamentos: agendamentosDia,
-      })
-    }
-
-    return diasSemana
-  }
-
-  const agendaSemana = getAgendaSemana()
-
-  const navegarSemana = (direcao: "anterior" | "proxima") => {
-    const novaData = new Date(dataSelecionada)
-    novaData.setDate(dataSelecionada.getDate() + (direcao === "proxima" ? 7 : -7))
-    setDataSelecionada(novaData)
-  }
-
-  const AgendamentoCard = ({ agendamento }: { agendamento: Agendamento }) => (
-    <Card className="mb-2">
-      <CardContent className="p-3">
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              <span className="font-medium">{agendamento.cliente?.nome}</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>
-                {agendamento.data_hora.toLocaleTimeString("pt-BR", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
-              <span>•</span>
-              <span>{agendamento.servico?.nome}</span>
-            </div>
-          </div>
-          <Badge
-            variant={
-              agendamento.status === "concluido"
-                ? "default"
-                : agendamento.status === "em_andamento"
-                  ? "secondary"
-                  : "outline"
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/agendamentos", { cache: "no-store" })
+        if (!res.ok) return
+        const rows: unknown = await res.json()
+        console.log("/barbeiro/agenda fetched agendamentos raw:", rows)
+        const toUiStatus = (s: string | undefined): Agendamento["status"] => {
+          const up = (s ?? "").toUpperCase()
+          if (up === "CONFIRMADO") return "confirmado"
+          if (up === "CONCLUIDO") return "concluido"
+          if (up === "CANCELADO") return "cancelado"
+          // PENDENTE e outros mapeiam para "agendado"
+          return "agendado"
+        }
+        const mapped: Agendamento[] = Array.isArray(rows) ? rows.map((r) => {
+          const anyR = r as Record<string, unknown>
+          const fkClienteId = typeof anyR.fkClienteId === 'string' ? anyR.fkClienteId : (typeof anyR.cliente_user_id === 'string' ? anyR.cliente_user_id : '')
+          const fkBarbeiroId = typeof anyR.fkBarbeiroId === 'string' ? anyR.fkBarbeiroId : (typeof anyR.barbeiro_user_id === 'string' ? anyR.barbeiro_user_id : '')
+          const fkServicoId = typeof anyR.fkServicoId === 'string' ? anyR.fkServicoId : (typeof anyR.servico_id === 'string' ? anyR.servico_id : '')
+          const statusStr = typeof anyR.status === 'string' ? anyR.status : 'PENDENTE'
+          const servJoined = (anyR.servico && typeof anyR.servico === 'object') ? (anyR.servico as Record<string, unknown>) : undefined
+          const clienteJoined = (anyR.cliente && typeof anyR.cliente === 'object') ? (anyR.cliente as Record<string, unknown>) : undefined
+          const barbeiroJoined = (anyR.barbeiro && typeof anyR.barbeiro === 'object') ? (anyR.barbeiro as Record<string, unknown>) : undefined
+          const item: Agendamento = {
+            id: String(anyR.agendamentoId ?? anyR.id),
+            cliente_user_id: fkClienteId,
+            barbeiro_user_id: fkBarbeiroId,
+            servico_id: fkServicoId,
+            data_hora: new Date((anyR.dataHoraInicio as string) ?? (anyR.data_hora as string)),
+            status: toUiStatus(statusStr),
+            preco_final: Number((anyR.valorCobrado as string | number | undefined) ?? (anyR.preco_final as number | undefined) ?? 0),
+            observacoes: (anyR.observacoesCliente as string | undefined) ?? (anyR.observacoes as string | undefined),
+            created_at: new Date((anyR.dataCadastro as string | undefined) ?? (anyR.created_at as string | undefined) ?? Date.now()),
+            updated_at: new Date((anyR.updatedAt as string | undefined) ?? (anyR.updated_at as string | undefined) ?? Date.now()),
+          }
+          if (servJoined) {
+            item.servico = {
+              id: typeof servJoined.servicoId === 'string' ? servJoined.servicoId : (typeof servJoined.id === 'string' ? servJoined.id : fkServicoId),
+              nome: typeof servJoined.nome === 'string' ? servJoined.nome : '',
+              descricao: (servJoined.descricao as string | undefined) ?? undefined,
+              duracao_minutos: Number((servJoined.duracaoMinutos as number | undefined) ?? (servJoined.duracao_minutos as number | undefined) ?? 30),
+              preco_base: Number((servJoined.precoBase as string | number | undefined) ?? (servJoined.preco_base as number | undefined) ?? 0),
+              ativo: true,
+              created_at: new Date(),
+              updated_at: new Date(),
             }
-          >
-            {agendamento.status === "agendado" && "Agendado"}
-            {agendamento.status === "confirmado" && "Confirmado"}
-            {agendamento.status === "em_andamento" && "Em Andamento"}
-            {agendamento.status === "concluido" && "Concluído"}
-          </Badge>
-        </div>
-      </CardContent>
-    </Card>
-  )
+          }
+          if (clienteJoined) {
+            item.cliente = {
+              id: typeof clienteJoined.userId === 'string' ? clienteJoined.userId : (typeof clienteJoined.id === 'string' ? clienteJoined.id : fkClienteId),
+              clerk_user_id: '',
+              nome: typeof clienteJoined.nome === 'string' ? clienteJoined.nome : '',
+              email: typeof clienteJoined.email === 'string' ? clienteJoined.email : '',
+              telefone: typeof clienteJoined.telefone === 'string' ? clienteJoined.telefone : '',
+              tipo: 'cliente',
+              created_at: new Date(),
+              updated_at: new Date(),
+            }
+          }
+          if (barbeiroJoined) {
+            item.barbeiro = {
+              id: typeof barbeiroJoined.userId === 'string' ? barbeiroJoined.userId : (typeof barbeiroJoined.id === 'string' ? barbeiroJoined.id : fkBarbeiroId),
+              clerk_user_id: '',
+              nome: typeof barbeiroJoined.nome === 'string' ? barbeiroJoined.nome : '',
+              email: typeof barbeiroJoined.email === 'string' ? barbeiroJoined.email : '',
+              telefone: typeof barbeiroJoined.telefone === 'string' ? barbeiroJoined.telefone : '',
+              tipo: 'barbeiro',
+              created_at: new Date(),
+              updated_at: new Date(),
+            }
+          }
+          return item
+        }) : []
+        console.log("/barbeiro/agenda mapped agendamentos:", mapped)
+        setAgendamentos(mapped)
+      } catch {}
+    })()
+  }, [])
 
+  // initialBarbeiro ensures only this barber's events are visible in calendar filters
   return (
-    <div className="container mx-auto p-4 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Minha Agenda</h1>
-        <p className="text-muted-foreground">Visualize seus agendamentos e horários</p>
-      </div>
-
-      <Tabs defaultValue="hoje" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="hoje">Hoje</TabsTrigger>
-          <TabsTrigger value="dia">Dia</TabsTrigger>
-          <TabsTrigger value="semana">Semana</TabsTrigger>
-          <TabsTrigger value="proximos">Próximos</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="hoje" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CalendarIcon className="h-5 w-5" />
-                Agendamentos de Hoje
-              </CardTitle>
-              <CardDescription>
-                {agendamentosHoje.length} agendamento(s) para {new Date().toLocaleDateString("pt-BR")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {agendamentosHoje.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">Nenhum agendamento para hoje</p>
-              ) : (
-                <div className="space-y-2">
-                  {agendamentosHoje.map((agendamento) => (
-                    <AgendamentoCard key={agendamento.id} agendamento={agendamento} />
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="dia" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Selecionar Data</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Calendar
-                  mode="single"
-                  selected={dataSelecionada}
-                  onSelect={(date) => date && setDataSelecionada(date)}
-                  className="rounded-md border"
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Agendamentos - {dataSelecionada.toLocaleDateString("pt-BR")}</CardTitle>
-                <CardDescription>{agendamentosDia.length} agendamento(s) para este dia</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {agendamentosDia.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">Nenhum agendamento para esta data</p>
-                ) : (
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {agendamentosDia.map((agendamento) => (
-                      <AgendamentoCard key={agendamento.id} agendamento={agendamento} />
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+    <CalendarProvider initialBarbeiro={agendamentos[0]?.barbeiro_user_id}>
+      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+        <PageHeader
+          title="Minha Agenda"
+          description="Visualize seus agendamentos nas diferentes visões"
+        />
+        <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+          <div className="p-4">
+            <AgendamentosCalendar
+              agendamentos={agendamentos}
+              onAgendamentoClick={() => { /* no-op */ }}
+              view="day"
+              allowedViews={["day", "agenda"]}
+            />
           </div>
-        </TabsContent>
-
-        <TabsContent value="semana" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Agenda Semanal</span>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => navegarSemana("anterior")}>
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <span className="text-sm font-normal">
-                    {agendaSemana[0]?.data.toLocaleDateString("pt-BR")} -{" "}
-                    {agendaSemana[6]?.data.toLocaleDateString("pt-BR")}
-                  </span>
-                  <Button variant="outline" size="sm" onClick={() => navegarSemana("proxima")}>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
-                {agendaSemana.map((dia, index) => (
-                  <div key={index} className="space-y-2">
-                    <div className="text-center">
-                      <div className="font-semibold">{dia.data.toLocaleDateString("pt-BR", { weekday: "short" })}</div>
-                      <div className="text-sm text-muted-foreground">{dia.data.getDate()}</div>
-                    </div>
-                    <div className="space-y-1">
-                      {dia.agendamentos.length === 0 ? (
-                        <div className="text-xs text-muted-foreground text-center py-2">Livre</div>
-                      ) : (
-                        dia.agendamentos.map((agendamento) => (
-                          <div key={agendamento.id} className="bg-primary/10 p-2 rounded text-xs">
-                            <div className="font-medium">
-                              {agendamento.data_hora.toLocaleTimeString("pt-BR", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </div>
-                            <div className="text-muted-foreground">{agendamento.cliente?.nome}</div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="proximos" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Próximos Agendamentos</CardTitle>
-              <CardDescription>Seus próximos {proximosAgendamentos.length} agendamentos</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {proximosAgendamentos.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">Nenhum agendamento futuro</p>
-              ) : (
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {proximosAgendamentos.slice(0, 10).map((agendamento) => (
-                    <Card key={agendamento.id}>
-                      <CardContent className="p-3">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <User className="h-4 w-4" />
-                              <span className="font-medium">{agendamento.cliente?.nome}</span>
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {agendamento.data_hora.toLocaleDateString("pt-BR")} às{" "}
-                              {agendamento.data_hora.toLocaleTimeString("pt-BR", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </div>
-                            <div className="text-sm text-muted-foreground">{agendamento.servico?.nome}</div>
-                          </div>
-                          <Badge variant="outline">
-                            R$ {agendamento.preco_final.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                          </Badge>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
+        </div>
+      </div>
+    </CalendarProvider>
   )
 }
