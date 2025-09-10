@@ -1,77 +1,90 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Button } from "~/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table"
-import { Plus, Pencil, Trash2 } from "lucide-react"
-import { getBarbeiros } from "~/lib/mock-data"
+import { Plus } from "lucide-react"
 import type { Usuario } from "~/lib/types"
 import { ModalAdicionarBarbeiro } from "~/components/ModalAdicionarBarbeiro"
+import { ModalEditarBarbeiro, type EditBarbeiroData } from "~/components/ModalEditarBarbeiro"
+import { ModalConfirmar } from "~/components/ModalConfirmar"
+import { PageHeader } from "~/components/PageHeader"
+import { BarbeirosDataTable } from "~/components/tables/BarbeirosDataTable"
 
 export default function BarbeirosPage() {
-  const [barbeiros, setBarbeiros] = useState<Usuario[]>(getBarbeiros())
+  const [barbeiros, setBarbeiros] = useState<Usuario[]>([])
   const [modalAdicionarOpen, setModalAdicionarOpen] = useState(false)
+  const [editarOpen, setEditarOpen] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [selected, setSelected] = useState<EditBarbeiroData | undefined>(undefined)
 
   // TODO: Buscar dados de /api/admin/barbeiros
+  async function loadBarbeiros() {
+    try {
+      const res = await fetch('/api/admin/barbeiros')
+      if (!res.ok) return
+      const rows = (await res.json()) as Array<{
+        userId: string
+        nome: string
+        email: string
+        telefone?: string | null
+        dataCadastro?: string | null
+        updatedAt?: string | null
+        deletedAt?: string | null
+      }>
+      const mapped: Usuario[] = rows.map((r) => ({
+        id: r.userId,
+        clerk_user_id: '',
+        nome: r.nome,
+        email: r.email,
+        telefone: r.telefone ?? '',
+        tipo: 'barbeiro',
+        created_at: r.dataCadastro ? new Date(r.dataCadastro) : new Date(),
+        updated_at: r.updatedAt ? new Date(r.updatedAt) : new Date(),
+        deleted_at: r.deletedAt ? new Date(r.deletedAt) : undefined,
+      }))
+      setBarbeiros(mapped)
+    } catch {}
+  }
 
-  const handleExcluirBarbeiro = (id: string) => {
-    // TODO: Implementar exclusão via API
-    setBarbeiros(barbeiros.filter((b) => b.id !== id))
+  // initial load + periodic refresh
+  const intervalRef = useRef<number | null>(null)
+  useEffect(() => {
+    void loadBarbeiros()
+    intervalRef.current = window.setInterval(() => { void loadBarbeiros() }, 30000)
+    return () => { if (intervalRef.current) window.clearInterval(intervalRef.current) }
+  }, [])
+
+  const handleExcluirBarbeiro = async (id: string) => {
+    setSelected({ id, nome: '', telefone: '' })
+    setConfirmOpen(true)
+    // The actual delete is handled by confirm modal action
+  }
+
+  const handleEditarBarbeiro = (barbeiro: Usuario) => {
+    setSelected({ id: barbeiro.id, nome: barbeiro.nome, telefone: barbeiro.telefone })
+    setEditarOpen(true)
   }
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Barbeiros</h1>
-          <p className="text-muted-foreground">Gerencie os barbeiros da equipe</p>
-        </div>
-        <Button onClick={() => setModalAdicionarOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Adicionar Barbeiro
-        </Button>
-      </div>
+      <PageHeader
+        title="Barbeiros"
+        description="Gerencie os barbeiros da equipe"
+        action={
+          <Button onClick={() => setModalAdicionarOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Adicionar Barbeiro
+          </Button>
+        }
+      />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Lista de Barbeiros</CardTitle>
-          <CardDescription>Todos os barbeiros cadastrados no sistema</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Telefone</TableHead>
-                <TableHead>Data de Cadastro</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {barbeiros.map((barbeiro) => (
-                <TableRow key={barbeiro.id}>
-                  <TableCell className="font-medium">{barbeiro.nome}</TableCell>
-                  <TableCell>{barbeiro.email}</TableCell>
-                  <TableCell>{barbeiro.telefone}</TableCell>
-                  <TableCell>{barbeiro.created_at.toLocaleDateString("pt-BR")}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="sm">
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleExcluirBarbeiro(barbeiro.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <BarbeirosDataTable
+        barbeiros={barbeiros}
+        title="Lista de Barbeiros"
+        description="Todos os barbeiros cadastrados no sistema"
+        onEdit={handleEditarBarbeiro}
+        onDelete={handleExcluirBarbeiro}
+      />
 
       <ModalAdicionarBarbeiro
         open={modalAdicionarOpen}
@@ -79,6 +92,35 @@ export default function BarbeirosPage() {
         onBarbeiroAdicionado={(novoBarbeiro) => {
           setBarbeiros([...barbeiros, novoBarbeiro])
           setModalAdicionarOpen(false)
+          void loadBarbeiros()
+        }}
+      />
+
+      <ModalEditarBarbeiro
+        open={editarOpen}
+        onOpenChange={setEditarOpen}
+        barbeiro={selected}
+        onSaved={(d) => {
+          setBarbeiros((prev) => prev.map((b) => (b.id === d.id ? { ...b, nome: d.nome, telefone: d.telefone ?? '' } : b)))
+          void loadBarbeiros()
+        }}
+      />
+
+      <ModalConfirmar
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        titulo="Confirmar exclusão"
+        descricao="Tem certeza que deseja excluir este barbeiro?"
+        onConfirmar={async () => {
+          if (!selected) return
+          try {
+            const res = await fetch(`/api/admin/barbeiros/${selected.id}`, { method: 'DELETE' })
+            if (!res.ok) throw new Error('Falha ao excluir')
+            setBarbeiros((prev) => prev.filter((b) => b.id !== selected.id))
+            setConfirmOpen(false)
+            setSelected(undefined)
+            void loadBarbeiros()
+          } catch {}
         }}
       />
     </div>
