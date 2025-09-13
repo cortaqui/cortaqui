@@ -46,6 +46,7 @@
     "@t3-oss/env-nextjs": "^0.12.0",
     "@tabler/icons-react": "^3.34.1",
     "@tanstack/react-table": "^8.21.3",
+    "abacatepay-nodejs-sdk": "^1.4.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "drizzle-orm": "^0.38.4",

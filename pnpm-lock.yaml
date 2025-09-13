@@ -86,6 +86,9 @@ importers:
       '@tanstack/react-table':
         specifier: ^8.21.3
         version: 8.21.3(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      abacatepay-nodejs-sdk:
+        specifier: ^1.4.1
+        version: 1.4.1
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -1842,6 +1845,9 @@ packages:
     resolution: {integrity: sha512-k59o9ZyeyS0hAlcaKFezYSH2agQeRFEB7KoQLXl3Nb3rgkqT1NY9Vwy+SqODiLmYnEjxWJVRE/yq2jFVqdIxZw==}
     cpu: [x64]
     os: [win32]
+
+  abacatepay-nodejs-sdk@1.4.1:
+    resolution: {integrity: sha512-9ELSNwrrPJRgWENr/JJtQZNNlNUnE1V08ANQOmRD2qAxmAs7AM76yiBzIli4nFMNO749JYDNTsLNKLjBNGkd9w==}
 
   acorn-jsx@5.3.2:
     resolution: {integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==}
@@ -5110,6 +5116,8 @@ snapshots:
 
   '@unrs/resolver-binding-win32-x64-msvc@1.9.0':
     optional: true
+
+  abacatepay-nodejs-sdk@1.4.1: {}
 
   acorn-jsx@5.3.2(acorn@8.15.0):
     dependencies:

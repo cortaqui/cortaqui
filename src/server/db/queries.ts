@@ -1,6 +1,7 @@
 import { db } from "~/server/db";
-import { usuario, servico, disponibilidade, agendamento, pagamento, statusAgendamentoEnum, statusPagamentoEnum } from "~/server/db/schema";
+import { usuario, servico, disponibilidade, agendamento, pagamento, type statusAgendamentoEnum, type statusPagamentoEnum } from "~/server/db/schema";
 import { desc, eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 export async function findUsuarioByEmail(email: string) {
@@ -232,4 +233,40 @@ export async function createPagamento(params: {
     })
     .returning();
   return row;
+}
+
+export async function approvePagamentoAndConcludeAgendamento(params: {
+  agendamentoId: string;
+  valorCentavos: number;
+  metodo?: string | null;
+  gatewayId: string;
+}) {
+  const valorDecimal = (params.valorCentavos / 100).toFixed(2);
+
+  // Upsert pagamento
+  await db
+    .insert(pagamento)
+    .values({
+      fkAgendamentoId: params.agendamentoId,
+      valor: valorDecimal,
+      metodo: params.metodo ?? "PIX",
+      status: "APROVADO",
+      idTransacaoGateway: params.gatewayId,
+      dataPagamento: sql`CURRENT_TIMESTAMP`,
+    })
+    .onConflictDoUpdate({
+      target: pagamento.fkAgendamentoId,
+      set: {
+        valor: valorDecimal,
+        metodo: params.metodo ?? "PIX",
+        status: "APROVADO",
+        idTransacaoGateway: params.gatewayId,
+        dataPagamento: sql`CURRENT_TIMESTAMP`,
+      },
+    });
+
+  // Conclude appointment
+  await db.update(agendamento).set({ status: "CONCLUIDO" }).where(eq(agendamento.agendamentoId, params.agendamentoId));
+
+  return { ok: true } as const;
 }

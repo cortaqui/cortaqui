@@ -14,15 +14,19 @@ export const env = createEnv({
 
     CLERK_SECRET_KEY: z.string(),
     CLERK_WEBHOOK_SIGNING_SECRET: z.string(),
-  },
+    ABACATEPAY_API_KEY: z.string(),
+    ABACATEPAY_DEV_MODE: z.string(),
+    ABACATEPAY_WEBHOOK_SECRET: z.string(),
+},
 
-  /**
-   * Specify your client-side environment variables schema here. This way you can ensure the app
-   * isn't built with invalid env vars. To expose them to the client, prefix them with
-   * `NEXT_PUBLIC_`.
-   */
-  client: {
+/**
+ * Specify your client-side environment variables schema here. This way you can ensure the app
+ * isn't built with invalid env vars. To expose them to the client, prefix them with
+ * `NEXT_PUBLIC_`.
+*/
+client: {
     // NEXT_PUBLIC_CLIENTVAR: z.string(),
+    NEXT_PUBLIC_SITE_URL: z.string(),
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string(),
   },
 
@@ -38,6 +42,10 @@ export const env = createEnv({
     CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY,
     CLERK_WEBHOOK_SIGNING_SECRET: process.env.CLERK_WEBHOOK_SIGNING_SECRET,
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+    ABACATEPAY_API_KEY: process.env.ABACATEPAY_API_KEY,
+    ABACATEPAY_DEV_MODE: process.env.ABACATEPAY_DEV_MODE,
+    ABACATEPAY_WEBHOOK_SECRET: process.env.ABACATEPAY_WEBHOOK_SECRET,
+    NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

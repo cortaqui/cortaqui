@@ -24,7 +24,7 @@ export function ModalPagamento({
   open,
   onOpenChange,
   agendamento,
-  onPagamentoRealizado
+  onPagamentoRealizado: _onPagamentoRealizado
 }: ModalPagamentoProps) {
   const [loading, setLoading] = useState(false)
 
@@ -32,16 +32,71 @@ export function ModalPagamento({
     if (!agendamento) return
 
     setLoading(true)
+    try {
+      const siteUrl = typeof window !== 'undefined' ? window.location.origin : ''
+      const product = {
+        externalId: agendamento.id,
+        name: agendamento.servico?.nome ?? 'Serviço',
+        description: agendamento.servico?.descricao ?? 'Pagamento de serviço',
+        quantity: 1,
+        price: Math.round(agendamento.preco_final * 100),
+      }
+      const customer = agendamento.cliente ? {
+        name: agendamento.cliente.nome,
+        email: agendamento.cliente.email,
+        cellphone: agendamento.cliente.telefone ?? '',
+        taxId: '123.456.789-01', // Adicione um valor padrão ou solicite ao cliente
+      } : undefined
 
-    // TODO: Integrar com gateway de pagamento (Stripe, PagSeguro, etc.)
-    console.log("Processando pagamento para agendamento:", agendamento.id)
+      const res = await fetch('/api/payments/abacate/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          products: [product],
+          customer,
+          returnUrl: siteUrl,
+          completionUrl: `${siteUrl}/meus-agendamentos`,
+          metadata: { agendamentoId: agendamento.id },
+        })
+      })
+      const jsonUnknown: unknown = await res.json()
+      console.log(jsonUnknown)
 
-    // Simular processamento do pagamento
-    await new Promise(resolve => setTimeout(resolve, 2000))
+      type CreateBillingResponse = { data?: { url?: string | null } | null; error?: string | null }
+      const isCreateBillingResponse = (v: unknown): v is CreateBillingResponse => {
+        if (typeof v !== 'object' || v === null) return false
+        const obj = v as Record<string, unknown>
+        const data = obj.data
+        const error = obj.error
+        const validError = error === undefined || error === null || typeof error === 'string'
+        const validData =
+          data === undefined || data === null ||
+          (typeof data === 'object' && ('url' in (data as Record<string, unknown>) ?
+            ((data as Record<string, unknown>).url === undefined || (data as Record<string, unknown>).url === null || typeof (data as Record<string, unknown>).url === 'string') : true))
+        return validError && validData
+      }
 
-    onPagamentoRealizado()
-    setLoading(false)
+      if (!isCreateBillingResponse(jsonUnknown)) {
+        throw new Error('Resposta inesperada do servidor')
+      }
+
+      const responseError = jsonUnknown.error ?? undefined
+      if (!res.ok || responseError !== undefined) {
+        throw new Error(responseError ?? 'Falha ao criar pagamento')
+      }
+
+      const url = jsonUnknown.data?.url ?? undefined
+      if (typeof url === 'string' && url) {
+        window.location.href = url
+      } else {
+        throw new Error('URL de pagamento não retornada')
+      }
+    } catch (e) {
+      console.error(e)
+      setLoading(false)
+    }
   }
+
 
   if (!agendamento) return null
 
