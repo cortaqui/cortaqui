@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "~/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "~/components/ui/dialog"
 import { Input } from "~/components/ui/input"
@@ -25,6 +25,14 @@ export function ModalEditarCliente({
   const [telefone, setTelefone] = useState(cliente?.telefone ?? "")
   const [loading, setLoading] = useState(false)
 
+  // Sync fields with current cliente when modal opens or target changes
+  useEffect(() => {
+    if (open && cliente) {
+      setNome(cliente.nome ?? "")
+      setTelefone(cliente.telefone ?? "")
+    }
+  }, [open, cliente])
+
   function formatPhone(input: string) {
     const digits = input.replace(/\D/g, "").slice(0, 11)
     if (digits.length <= 2) return `(${digits}`
@@ -37,13 +45,29 @@ export function ModalEditarCliente({
     if (!cliente) return
     setLoading(true)
     try {
+      const nextNome = (nome ?? "").trim()
+      const nextTelefone = (telefone ?? "").trim()
+
+      const payload: { nome?: string; telefone?: string } = {}
+      if (nextNome.length > 0 && nextNome !== (cliente.nome ?? "")) {
+        payload.nome = nextNome
+      }
+      if (nextTelefone.length > 0 && nextTelefone !== (cliente.telefone ?? "")) {
+        payload.telefone = nextTelefone
+      }
+
+      if (Object.keys(payload).length === 0) {
+        onOpenChange(false)
+        return
+      }
+
       const res = await fetch(`/api/admin/clientes/${cliente.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome, telefone }),
+        body: JSON.stringify(payload),
       })
       if (!res.ok) throw new Error('Falha ao salvar cliente')
-      onSaved({ id: cliente.id, nome, telefone })
+      onSaved({ id: cliente.id, nome: payload.nome ?? cliente.nome, telefone: payload.telefone ?? cliente.telefone })
       onOpenChange(false)
     } catch {
       // noop

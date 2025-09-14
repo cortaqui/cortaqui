@@ -15,6 +15,7 @@ import { computeDailyWorkIntervals, generateAvailableSlots, type Disponibilidade
 
 export default function AgendarPage() {
   const isMobile = useIsMobile()
+  // On this page, always show client menus to avoid overriding barber layout
   const [servicoQuery, setServicoQuery] = useState("")
   const [servicoSel, setServicoSel] = useState<{ id: string; nome: string; duracaoMin?: number; precoBase?: number } | null>(null)
   const [barbeiroQuery, setBarbeiroQuery] = useState("")

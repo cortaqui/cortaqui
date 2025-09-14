@@ -9,17 +9,17 @@ export default async function AuthRedirectPage() {
   }
 
   const claims = sessionClaims as unknown as { metadata?: { role?: string } } | undefined
-  const raw = claims?.metadata?.role ?? undefined
-  let role = typeof raw === 'string' ? raw.toUpperCase() : undefined
-
+  const user = await currentUser()
+  const email = user?.primaryEmailAddress?.emailAddress ?? user?.emailAddresses?.[0]?.emailAddress
+  let role: string | undefined = undefined
+  if (email) {
+    const row = await findUsuarioByEmail(email)
+    const dbRole = row?.tipoUsuario
+    role = typeof dbRole === 'string' ? dbRole.toUpperCase() : undefined
+  }
   if (!role) {
-    const user = await currentUser()
-    const email = user?.primaryEmailAddress?.emailAddress ?? user?.emailAddresses?.[0]?.emailAddress
-    if (email) {
-      const row = await findUsuarioByEmail(email)
-      const dbRole = row?.tipoUsuario
-      role = typeof dbRole === 'string' ? dbRole.toUpperCase() : undefined
-    }
+    const raw = claims?.metadata?.role ?? undefined
+    role = typeof raw === 'string' ? raw.toUpperCase() : undefined
   }
 
   if (role === 'ADMIN') {

@@ -5,7 +5,7 @@ import { Logo } from "~/components/logo"
 import { ClerkAuthButtons } from "~/components/ClerkAuthButtons"
 import { MobileNavSheet } from "~/components/MobileNavSheet"
 import Link from "next/link"
-import { CalendarDays, History } from "lucide-react"
+import { CalendarDays, History, User } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { SidebarProvider } from "~/components/ui/sidebar"
 
@@ -31,6 +31,8 @@ export default function BarbeiroLayout({
                   items={[
                     { title: "Agenda", url: "/barbeiro/agenda", icon: CalendarDays },
                     { title: "Histórico", url: "/barbeiro/historico-servicos", icon: History },
+                    { title: "Agendar", url: "/agendar", icon: CalendarDays },
+                    { title: "Meus Agendamentos", url: "/meus-agendamentos", icon: User },
                   ]}
                 />
               </div>
@@ -42,6 +44,12 @@ export default function BarbeiroLayout({
                   </Link>
                   <Link href="/barbeiro/historico-servicos" className="text-sm hover:underline">
                     Histórico
+                  </Link>
+                  <Link href="/agendar" className="text-sm hover:underline">
+                    Agendar
+                  </Link>
+                  <Link href="/meus-agendamentos" className="text-sm hover:underline">
+                    Meus Agendamentos
                   </Link>
                 </nav>
                 <ClerkAuthButtons />

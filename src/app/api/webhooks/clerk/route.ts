@@ -105,14 +105,18 @@ async function handleUserCreated(data: ClerkUserPayload) {
   const joined = [first_name, last_name].filter((x) => typeof x === "string" && x).join(" ");
   const fullName = (joined && joined.trim().length > 0 ? joined : (username ?? "")) || "Usuário";
   const phone = getPrimaryPhone(data);
-  const role = parseRoleFromMetadata(data) ?? ("CLIENTE" as AppRole);
+  const roleFromMetadata = parseRoleFromMetadata(data);
+  let finalRole: AppRole = (roleFromMetadata ?? ("CLIENTE" as AppRole));
 
   try {
     const existing = await db
-      .select({ id: usuario.userId })
+      .select({ id: usuario.userId, tipoUsuario: usuario.tipoUsuario })
       .from(usuario)
       .where(eq(usuario.email, email))
       .limit(1);
+    if (!roleFromMetadata && existing.length > 0 && typeof existing[0]?.tipoUsuario === "string") {
+      finalRole = existing[0].tipoUsuario as AppRole;
+    }
 
     if (existing.length === 0) {
       await db
@@ -121,8 +125,10 @@ async function handleUserCreated(data: ClerkUserPayload) {
           nome: fullName,
           email,
           telefone: phone ?? undefined,
-          tipoUsuario: role,
+          tipoUsuario: finalRole,
           hashSenha: "clerk-managed",
+          // Avoid drizzle $onUpdate(sql`CURRENT_TIMESTAMP`) serialization issues
+          updatedAt: new Date(),
         });
     } else {
       await db
@@ -130,7 +136,9 @@ async function handleUserCreated(data: ClerkUserPayload) {
         .set({
           nome: fullName,
           telefone: phone ?? undefined,
-          tipoUsuario: role,
+          tipoUsuario: finalRole,
+          // Explicitly set to prevent $onUpdate(sql) from being injected
+          updatedAt: new Date(),
         })
         .where(eq(usuario.email, email));
     }
@@ -159,11 +167,11 @@ async function handleUserCreated(data: ClerkUserPayload) {
 
     async function tryUpdateById(userId: string) {
       if (typeof users.updateUser === "function") {
-        await users.updateUser(userId, { publicMetadata: { role } });
+        await users.updateUser(userId, { publicMetadata: { role: finalRole } });
         return true;
       }
       if (typeof users.updateUserMetadata === "function") {
-        await users.updateUserMetadata(userId, { publicMetadata: { role } });
+        await users.updateUserMetadata(userId, { publicMetadata: { role: finalRole } });
         return true;
       }
       return false;

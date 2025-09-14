@@ -72,34 +72,44 @@ export async function POST(req: Request) {
       );
     }
 
-    // Step 2: If Clerk user id provided, set role; otherwise, try to locate by email and set role or create user
+    // Step 2: Best-effort Clerk role assignment; do NOT fail the request if Clerk operations fail
     try {
       const client = await clerkClient();
-      let targetId = data.clerkUserId;
+      // Ignore invalid IDs that don't look like Clerk user IDs (e.g., generated UUIDs)
+      const looksLikeClerkId = (id: string | undefined) => typeof id === 'string' && id.startsWith('user_');
+      let targetId = looksLikeClerkId(data.clerkUserId) ? data.clerkUserId : undefined;
+
       if (!targetId) {
         try {
           const found = await client.users.getUserList({ emailAddress: [data.email], limit: 1 });
-          targetId = found.data?.[0]?.id;
+          const extracted = (() => {
+            const anyFound: unknown = found;
+            if (Array.isArray(anyFound)) {
+              const first = anyFound[0] as { id?: unknown } | undefined;
+              return typeof first?.id === 'string' ? first.id : undefined;
+            }
+            const dataArr = (anyFound as { data?: Array<{ id?: unknown }> })?.data;
+            const first = Array.isArray(dataArr) ? dataArr[0] : undefined;
+            return typeof first?.id === 'string' ? first.id : undefined;
+          })();
+          targetId = extracted;
         } catch (searchErr) {
-          console.error("Clerk user search falhou:", searchErr)
-          return NextResponse.json(
-            { error: "Clerk user search falhou", details: String(searchErr) },
-            { status: 500 }
-          );
+          console.warn("[non-blocking] Clerk user search falhou:", searchErr)
         }
       }
+
       if (targetId) {
         try {
-          await client.users.updateUserMetadata(targetId, { publicMetadata: { role: "BARBEIRO" } });
+          if (typeof client.users.updateUser === 'function') {
+            await client.users.updateUser(targetId, { publicMetadata: { role: "BARBEIRO" } });
+          } else {
+            await client.users.updateUserMetadata(targetId, { publicMetadata: { role: "BARBEIRO" } });
+          }
         } catch (metaErr) {
-          console.error("Clerk updateUserMetadata falhou:", metaErr)
-          return NextResponse.json(
-            { error: "Clerk updateUserMetadata falhou", details: String(metaErr), clerkUserId: targetId },
-            { status: 500 }
-          );
+          console.warn("[non-blocking] Clerk metadata update falhou:", metaErr)
         }
       } else {
-        // Create Clerk user if not found
+        // Attempt to create or invite; ignore failures
         const parts = data.nome.trim().split(/\s+/);
         const firstName = parts[0] ?? data.nome;
         const lastName = parts.slice(1).join(" ") || null;
@@ -111,37 +121,22 @@ export async function POST(req: Request) {
             publicMetadata: { role: "BARBEIRO" },
           });
         } catch (createErr) {
-          console.error("Clerk createUser falhou:", createErr)
-          // Fallback: send an invitation if direct user creation is blocked (e.g., 422)
+          console.warn("[non-blocking] Clerk createUser falhou:", createErr)
           if (createErr && typeof createErr === 'object' && 'status' in createErr && (createErr as { status?: number }).status === 422) {
             try {
               const inv = await client.invitations.createInvitation({
                 emailAddress: data.email,
                 publicMetadata: { role: "BARBEIRO" },
               });
-              console.log("Clerk invitation created:", { id: inv.id, email: inv.emailAddress, status: inv.status })
+              console.log("Clerk invitation created:", { id: (inv as { id?: string }).id, email: (inv as { emailAddress?: string }).emailAddress, status: (inv as { status?: string }).status })
             } catch (inviteErr) {
-              console.error("Clerk createInvitation falhou:", inviteErr)
-              return NextResponse.json(
-                { error: "Clerk createUser e createInvitation falharam", details: String(inviteErr) },
-                { status: 500 }
-              );
+              console.warn("[non-blocking] Clerk createInvitation falhou:", inviteErr)
             }
-          } else {
-            return NextResponse.json(
-              { error: "Clerk createUser falhou", details: String(createErr) },
-              { status: 500 }
-            );
           }
         }
-        // best-effort: nothing else needed; webhook will upsert too
       }
     } catch (outerClerkErr) {
-      console.error("Clerk integração falhou:", outerClerkErr)
-      return NextResponse.json(
-        { error: "Clerk integração falhou", details: String(outerClerkErr) },
-        { status: 500 }
-      );
+      console.warn("[non-blocking] Clerk integração falhou:", outerClerkErr)
     }
 
     return NextResponse.json(row, { status: 201 });

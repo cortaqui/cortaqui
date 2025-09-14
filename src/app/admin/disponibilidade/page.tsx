@@ -235,7 +235,7 @@ export default function DisponibilidadePage() {
                         {s.tipo.toUpperCase()}
                       </Badge>
                       <span>
-                        {s.data_especifica?.toLocaleDateString()} — {s.hora_inicio} - {s.hora_fim}
+                        {s.data_especifica?.toLocaleDateString("pt-BR")} — {s.hora_inicio} - {s.hora_fim}
                       </span>
                     </div>
                     <div className="flex gap-2">

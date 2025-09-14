@@ -42,7 +42,7 @@ export default function RootLayout({
   return (
     <ClerkProvider localization={ptBR}>
       <html lang="en" className={`${geist.variable}`}>
-        <body>{children}</body>
+        <body className="min-h-screen overflow-y-auto">{children}</body>
       </html>
     </ClerkProvider>
   );

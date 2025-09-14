@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card"
 import { Label } from "~/components/ui/label"
 import { Button } from "~/components/ui/button"
-import { Badge } from "~/components/ui/badge"
+import { StatusBadge } from "~/components/StatusBadge"
 import type { Agendamento } from "~/lib/types"
 import { Filter, Calendar } from "lucide-react"
 import { UserAutocomplete } from "~/components/UserAutocomplete"
@@ -94,12 +94,6 @@ export default function HistoricoServicosPage() {
     })
     .sort((a, b) => b.data_hora.getTime() - a.data_hora.getTime())
 
-  // Removed faturamento/ticket metrics
-
-  // const servicosUnicos = [...new Set(agendamentos.map((a) => a.servico?.nome).filter(Boolean))]
-
-  // removed month filter
-
   const limparFiltros = () => {
     console.log('[Historico] limpar filtros')
     setClienteSelecionado(null)
@@ -173,8 +167,6 @@ export default function HistoricoServicosPage() {
               <Button variant="default" onClick={executarBusca} disabled={isLoading} className="w-full">Buscar</Button>
             </div>
 
-            {/* Month filter removed */}
-
             <div className="flex items-end">
               <Button variant="outline" onClick={limparFiltros} className="w-full">
                 Limpar Filtros
@@ -207,7 +199,7 @@ export default function HistoricoServicosPage() {
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{agendamento.cliente?.nome}</span>
-                          <Badge variant="default">Concluído</Badge>
+                          <StatusBadge status={agendamento.status} />
                         </div>
                         <div className="text-sm text-muted-foreground">{agendamento.servico?.nome}</div>
                         <div className="text-sm text-muted-foreground">

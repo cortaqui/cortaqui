@@ -104,7 +104,7 @@ export function ModalAdicionarBarbeiro({ open, onOpenChange, onBarbeiroAdicionad
                 setTelefone(s.phone ?? '')
                 setClerkUserId(s.id)
               }}
-              searchApi="/api/admin/barbeiros/search"
+              searchApi="/api/admin/clientes/search"
               label="Nome Completo"
               placeholder="Ex: João Silva"
             />

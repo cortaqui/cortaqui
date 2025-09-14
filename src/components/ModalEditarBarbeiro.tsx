@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "~/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "~/components/ui/dialog"
 import { Input } from "~/components/ui/input"
@@ -25,6 +25,14 @@ export function ModalEditarBarbeiro({
   const [telefone, setTelefone] = useState(barbeiro?.telefone ?? "")
   const [loading, setLoading] = useState(false)
 
+  // Sync fields with current barbeiro when modal opens or target changes
+  useEffect(() => {
+    if (open && barbeiro) {
+      setNome(barbeiro.nome ?? "")
+      setTelefone(barbeiro.telefone ?? "")
+    }
+  }, [open, barbeiro])
+
   function formatPhone(input: string) {
     const digits = input.replace(/\D/g, "").slice(0, 11)
     if (digits.length <= 2) return `(${digits}`
@@ -37,13 +45,30 @@ export function ModalEditarBarbeiro({
     if (!barbeiro) return
     setLoading(true)
     try {
+      const nextNome = (nome ?? "").trim()
+      const nextTelefone = (telefone ?? "").trim()
+
+      const payload: { nome?: string; telefone?: string } = {}
+      if (nextNome.length > 0 && nextNome !== (barbeiro.nome ?? "")) {
+        payload.nome = nextNome
+      }
+      if (nextTelefone.length > 0 && nextTelefone !== (barbeiro.telefone ?? "")) {
+        payload.telefone = nextTelefone
+      }
+
+      // If nothing changed or fields are empty, skip request and just close
+      if (Object.keys(payload).length === 0) {
+        onOpenChange(false)
+        return
+      }
+
       const res = await fetch(`/api/admin/barbeiros/${barbeiro.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome, telefone }),
+        body: JSON.stringify(payload),
       })
       if (!res.ok) throw new Error('Falha ao salvar barbeiro')
-      onSaved({ id: barbeiro.id, nome, telefone })
+      onSaved({ id: barbeiro.id, nome: payload.nome ?? barbeiro.nome, telefone: payload.telefone ?? barbeiro.telefone })
       onOpenChange(false)
     } catch {
       // noop
