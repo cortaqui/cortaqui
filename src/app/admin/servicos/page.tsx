@@ -10,7 +10,7 @@ import { ModalAdicionarServicoEspecifico } from "~/components/ModalAdicionarServ
 import { ModalConfirmar } from "~/components/ModalConfirmar"
 import { PageHeader } from "~/components/PageHeader"
 import { ServicosDataTable } from "~/components/tables/ServicosDataTable"
-import { ServicosEspecificosList } from "~/components/ServicosEspecificosList"
+import { PrecosEspecificosDataTable } from "~/components/tables/PrecosEspecificosDataTable"
 
 export default function ServicosPage() {
   const [servicos, setServicos] = useState<Servico[]>([])
@@ -88,10 +88,6 @@ export default function ServicosPage() {
         description="Gerencie os serviços oferecidos pela barbearia"
         action={
           <div className="flex gap-2">
-            <Button onClick={() => setAddSpecificOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Adicionar Serviço Específico
-            </Button>
             <Button onClick={() => setModalAdicionarOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Adicionar Serviço
@@ -106,6 +102,7 @@ export default function ServicosPage() {
         description="Todos os serviços cadastrados no sistema"
         onEdit={handleEditarServico}
         onDelete={handleExcluirServico}
+        refreshKey={specificRefresh}
       />
 
       <ModalAdicionarServico
@@ -125,6 +122,7 @@ export default function ServicosPage() {
           setServicos(servicos.map((s) => (s.id === servicoEditado.id ? servicoEditado : s)))
           setModalEditarOpen(false)
           setServicoEditando(null)
+          setSpecificRefresh((v) => v + 1)
         }}
       />
 
@@ -150,6 +148,7 @@ export default function ServicosPage() {
             const resp = await fetch(`/api/admin/servicos/${encodeURIComponent(toDelete.id)}`, { method: "DELETE" })
             if (resp.ok) {
               setServicos((cur) => cur.filter((s) => s.id !== toDelete.id))
+              setSpecificRefresh((v) => v + 1)
             }
           } finally {
             setDeleting(false)
@@ -158,7 +157,21 @@ export default function ServicosPage() {
           }
         }}
       />
-      <ServicosEspecificosList refreshKey={specificRefresh} />
+
+      <PageHeader
+        title="Preços Específicos"
+        description="Gerencie os preços específicos dos serviços"
+        action={
+          <div className="flex gap-2">
+            <Button onClick={() => setAddSpecificOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Adicionar Serviço Específico
+            </Button>
+          </div>
+        }
+      />
+
+      <PrecosEspecificosDataTable refreshKey={specificRefresh} />
     </div>
   )
 }

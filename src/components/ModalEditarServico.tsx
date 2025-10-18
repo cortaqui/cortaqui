@@ -18,6 +18,8 @@ import { Textarea } from "~/components/ui/textarea"
 import { Switch } from "~/components/ui/switch"
 import type { Servico } from "~/lib/types"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select"
+import { Autocomplete, type Suggestion } from "~/components/Autocomplete"
+import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar"
 
 interface ModalEditarServicoProps {
   open: boolean
@@ -34,6 +36,8 @@ export function ModalEditarServico({ open, onOpenChange, servico, onServicoEdita
   const [ativo, setAtivo] = useState(true)
   const [loading, setLoading] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
+  const [barbeiroQuery, setBarbeiroQuery] = useState("")
+  const [selectedBarbeiros, setSelectedBarbeiros] = useState<Array<{ id: string; nome: string }>>([])
 
   useEffect(() => {
     if (servico) {
@@ -42,6 +46,19 @@ export function ModalEditarServico({ open, onOpenChange, servico, onServicoEdita
       setDuracaoMinutos(servico.duracao_minutos.toString())
       setPrecoBase(Number(servico.preco_base).toFixed(2).replace('.', ','))
       setAtivo(servico.ativo)
+      // load associated barbers
+      void (async () => {
+        try {
+          const res = await fetch(`/api/admin/servicos/${encodeURIComponent(servico.id)}/barbeiros`)
+          if (!res.ok) return
+          const rowsUnknown: unknown = await res.json()
+          const rows = Array.isArray(rowsUnknown) ? rowsUnknown as Array<Record<string, unknown>> : []
+          const mapped = rows
+            .map((r) => ({ id: String((r.id ?? r.userId) as string), nome: String((r.nome ?? r.name) as string) }))
+            .filter((b) => !!b.id && !!b.nome)
+          setSelectedBarbeiros(mapped)
+        } catch {}
+      })()
     }
   }, [servico])
 
@@ -86,6 +103,14 @@ export function ModalEditarServico({ open, onOpenChange, servico, onServicoEdita
         created_at: new Date(servico.created_at),
         updated_at: new Date(row.updatedAt),
       }
+      // Save associations
+      try {
+        await fetch(`/api/admin/servicos/${encodeURIComponent(servicoEditado.id)}/barbeiros`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ barbeiroIds: selectedBarbeiros.map((b) => b.id) }),
+        })
+      } catch {}
       onServicoEditado(servicoEditado)
     } catch {
       // noop: could add toast later
@@ -127,7 +152,7 @@ export function ModalEditarServico({ open, onOpenChange, servico, onServicoEdita
               />
             </div>
             <div className="grid grid-cols-2 gap-4 items-start">
-              <div className="grid gap-2 min-w-2">
+              <div className="grid gap-2 min-w-0">
                 <Label htmlFor="duracao">Duração (min)</Label>
                 <Select value={duracaoMinutos} onValueChange={setDuracaoMinutos} required>
                   <SelectTrigger className="w-full">
@@ -170,11 +195,45 @@ export function ModalEditarServico({ open, onOpenChange, servico, onServicoEdita
                 />
               </div>
             </div>
-            <div className="flex items-center space-x-2">
+          {/* Associations */}
+          <div className="grid gap-2">
+            <Label>Barbeiros que realizam este serviço</Label>
+            <Autocomplete
+              value={barbeiroQuery}
+              onChange={setBarbeiroQuery}
+              onSelect={(s: Suggestion) => {
+                setBarbeiroQuery("")
+                setSelectedBarbeiros((cur) => cur.find((b) => b.id === s.id) ? cur : [...cur, { id: s.id, nome: s.name }])
+              }}
+              searchApi="/api/admin/barbeiros/search"
+              placeholder="Buscar barbeiro para adicionar"
+              required={false}
+            />
+            <div className="flex flex-wrap gap-2 pt-1">
+              {selectedBarbeiros.map((b) => (
+                <div key={b.id} className="inline-flex items-center gap-2 rounded-full border px-2 py-1 text-xs">
+                  <Avatar className="h-5 w-5">
+                    <AvatarImage />
+                    <AvatarFallback>{b.nome?.[0]?.toUpperCase() ?? 'B'}</AvatarFallback>
+                  </Avatar>
+                  <span>{b.nome}</span>
+                  <button
+                    type="button"
+                    className="rounded-full px-1 hover:bg-accent"
+                    onClick={() => setSelectedBarbeiros((cur) => cur.filter((x) => x.id !== b.id))}
+                    aria-label={`Remover ${b.nome}`}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+            </div>
+            <div className="flex items-center space-x-2 pb-2">
               <Switch id="ativo" checked={ativo} onCheckedChange={setAtivo} />
               <Label htmlFor="ativo">Serviço ativo</Label>
             </div>
-          </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar

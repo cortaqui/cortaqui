@@ -37,7 +37,8 @@ export default function AgendarPage() {
     if (!servicoSel?.id) return
     void (async () => {
       try {
-        const res = await fetch(`/api/cliente/servicos/${servicoSel.id}`)
+        const barber = barbeiroSel?.id ? `?barbeiroId=${barbeiroSel.id}` : ""
+        const res = await fetch(`/api/cliente/servicos/${servicoSel.id}${barber}`)
         if (res.ok) {
           const sUnknown: unknown = await res.json()
           let s: Record<string, unknown> = {}
@@ -49,14 +50,14 @@ export default function AgendarPage() {
             const nomeSrv = typeof s.nome === 'string' ? s.nome : prev.nome
             const dur = typeof s.duracaoMinutos === 'number' ? s.duracaoMinutos : (prev.duracaoMin ?? 30)
             // drizzle decimal likely comes as string in row.precoBase
-            const precoRaw = s.precoBase
+            const precoRaw = (typeof s.precoFinal !== 'undefined' ? s.precoFinal : s.precoBase)
             const preco = typeof precoRaw === 'string' ? Number(precoRaw) : (typeof precoRaw === 'number' ? precoRaw : (prev.precoBase ?? 0))
             return { id: prev.id, nome: nomeSrv, duracaoMin: dur, precoBase: preco }
           })
         }
       } catch {}
     })()
-  }, [servicoSel?.id])
+  }, [servicoSel?.id, barbeiroSel?.id])
 
   useEffect(() => {
     if (!barbeiroSel?.id) return
@@ -197,7 +198,7 @@ export default function AgendarPage() {
                   value={barbeiroQuery}
                   onChange={(v: string) => setBarbeiroQuery(v)}
                   onSelect={(s) => { setBarbeiroSel(s); setBarbeiroQuery(s.name) }}
-                  searchApi="/api/cliente/barbeiros/search"
+                  searchApi={servicoSel?.id ? `/api/cliente/barbeiros/search?servicoId=${servicoSel.id}` : "/api/cliente/barbeiros/search"}
                   placeholder="Buscar barbeiro"
                 />
                 {!barbeiroSel && <p className="text-xs text-destructive mt-2">Selecione um barbeiro para continuar.</p>}

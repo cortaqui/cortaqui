@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { assertHasAnyRole } from "~/lib/auth";
 import { db } from "~/server/db";
-import { servico } from "~/server/db/schema";
+import { servico, servicoBarbeiro } from "~/server/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 
@@ -59,6 +59,8 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
   try {
     await assertHasAnyRole(["ADMIN"]);
     const { id } = await params;
+    // Cascade delete specific prices/associations (app-level cascade)
+    await db.delete(servicoBarbeiro).where(eq(servicoBarbeiro.servicoId, id));
     const [row] = await db.delete(servico).where(eq(servico.servicoId, id)).returning();
     return NextResponse.json(row);
   } catch (e: unknown) {

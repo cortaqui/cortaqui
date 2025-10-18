@@ -12,6 +12,7 @@ export function Autocomplete({
   searchApi,
   label,
   placeholder,
+  required = true,
 }: {
   value: string
   onChange: (val: string) => void
@@ -19,6 +20,7 @@ export function Autocomplete({
   searchApi: string
   label?: string
   placeholder?: string
+  required?: boolean
 }) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [show, setShow] = useState(false)
@@ -26,7 +28,10 @@ export function Autocomplete({
   useEffect(() => {
     const controller = new AbortController()
     const q = value.trim()
-    const url = q.length < 2 ? `${searchApi}?limit=2` : `${searchApi}?q=${encodeURIComponent(q)}&limit=10`
+    const sep = searchApi.includes("?") ? "&" : "?"
+    const url = q.length < 2
+      ? `${searchApi}${sep}limit=2`
+      : `${searchApi}${sep}q=${encodeURIComponent(q)}&limit=10`
     const t = window.setTimeout(() => {
       void (async () => {
         try {
@@ -53,7 +58,7 @@ export function Autocomplete({
           onChange={(e) => { onChange(e.target.value); setShow(true) }}
           onFocus={() => setShow(true)}
           placeholder={placeholder}
-          required
+          required={required}
           autoComplete="off"
         />
         {show && suggestions.length > 0 && (

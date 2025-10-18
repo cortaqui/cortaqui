@@ -222,7 +222,7 @@ export function EventDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[450px]">
         <DialogHeader>
           <DialogTitle>{event?.id ? "Editar Agendamento" : "Novo Agendamento"}</DialogTitle>
           <DialogDescription className="sr-only">

@@ -1,10 +1,11 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
 import { Button } from "~/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table"
-import { Pencil, Trash2 } from "lucide-react"
+import { Input } from "~/components/ui/input"
+import { Pencil, Trash2, Scissors } from "lucide-react"
 import { ModalEditarServicoEspecifico } from "~/components/ModalEditarServicoEspecifico"
 import { ModalConfirmar } from "~/components/ModalConfirmar"
 
@@ -17,29 +18,59 @@ type Row = {
   barbeiroNome?: string
 }
 
-export function ServicosEspecificosList({ refreshKey }: { refreshKey?: number }) {
+export function PrecosEspecificosDataTable({ refreshKey }: { refreshKey?: number }) {
   const [rows, setRows] = useState<Row[]>([])
   const [editOpen, setEditOpen] = useState(false)
   const [editing, setEditing] = useState<Row | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10
 
   async function loadAll() {
-    // For simplicity, list all by not passing barbeiroId; API will currently require it, so fallback to none
-    const res = await fetch("/api/admin/servicos/barbeiro")
+    const res = await fetch("/api/admin/servicos/barbeiro", { cache: "no-store" })
     if (!res.ok) { setRows([]); return }
     const data = (await res.json()) as Row[]
-    setRows(Array.isArray(data) ? data : [])
+    const filtered = (Array.isArray(data) ? data : []).filter((r) => r.precoEspecifico !== null)
+    setRows(filtered)
   }
 
   useEffect(() => {
     void loadAll()
   }, [refreshKey])
 
+  const filtered = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase()
+    if (!q) return rows
+    return rows.filter((r) => (r.servicoNome ?? "").toLowerCase().includes(q) || (r.barbeiroNome ?? "").toLowerCase().includes(q))
+  }, [rows, searchTerm])
+
+  const totalPages = Math.ceil(filtered.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const pageRows = filtered.slice(startIndex, startIndex + itemsPerPage)
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Serviços Específicos</CardTitle>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Scissors className="h-5 w-5" />
+              Preços Específicos
+            </CardTitle>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Input
+                placeholder="Buscar serviço ou barbeiro..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-80"
+              />
+            </div>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="rounded-md border">
@@ -53,11 +84,11 @@ export function ServicosEspecificosList({ refreshKey }: { refreshKey?: number })
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.length === 0 ? (
+              {pageRows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="h-24 text-center">Nenhum serviço específico cadastrado.</TableCell>
+                  <TableCell colSpan={4} className="h-24 text-center">Nenhum preço específico cadastrado.</TableCell>
                 </TableRow>
-              ) : rows.map((r) => (
+              ) : pageRows.map((r) => (
                 <TableRow key={`${r.barbeiroUserId}-${r.servicoId}`}>
                   <TableCell>{r.servicoNome ?? r.servicoId}</TableCell>
                   <TableCell>{r.barbeiroNome ?? r.barbeiroUserId}</TableCell>
@@ -77,6 +108,33 @@ export function ServicosEspecificosList({ refreshKey }: { refreshKey?: number })
             </TableBody>
           </Table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between space-x-2 py-4">
+            <div className="text-sm text-muted-foreground">
+              Mostrando {startIndex + 1} a {Math.min(startIndex + itemsPerPage, filtered.length)} de {filtered.length} preços específicos
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                disabled={currentPage === 1}
+              >
+                Anterior
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                disabled={currentPage === totalPages}
+              >
+                Próxima
+              </Button>
+            </div>
+          </div>
+        )}
 
         {editing && (
           <ModalEditarServicoEspecifico

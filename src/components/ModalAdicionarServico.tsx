@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "~/components/ui/button"
 import {
   Dialog,
@@ -18,6 +18,8 @@ import { Textarea } from "~/components/ui/textarea"
 import { Switch } from "~/components/ui/switch"
 import type { Servico } from "~/lib/types"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select"
+import { Autocomplete, type Suggestion } from "~/components/Autocomplete"
+import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar"
 
 interface ModalAdicionarServicoProps {
   open: boolean
@@ -33,6 +35,28 @@ export function ModalAdicionarServico({ open, onOpenChange, onServicoAdicionado 
   const [ativo, setAtivo] = useState(true)
   const [loading, setLoading] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
+  const [barbeiroQuery, setBarbeiroQuery] = useState("")
+  const [selectedBarbeiros, setSelectedBarbeiros] = useState<Array<{ id: string; nome: string }>>([])
+
+  // On create, default to all barbers (allow-all)
+  useEffect(() => {
+    if (!open) return
+    let active = true
+    void (async () => {
+      try {
+        const res = await fetch("/api/admin/barbeiros?limit=100")
+        if (!res.ok) return
+        const rowsUnknown: unknown = await res.json()
+        const rows = Array.isArray(rowsUnknown) ? rowsUnknown as Array<Record<string, unknown>> : []
+        if (!active) return
+        const mapped = rows
+          .map((r) => ({ id: String((r.userId ?? r.id) as string), nome: String((r.nome ?? r.name) as string) }))
+          .filter((b) => !!b.id && !!b.nome)
+        setSelectedBarbeiros(mapped)
+      } catch {}
+    })()
+    return () => { active = false }
+  }, [open])
 
   type AdminServicoRow = {
     servicoId: string
@@ -70,7 +94,7 @@ export function ModalAdicionarServico({ open, onOpenChange, onServicoAdicionado 
       if (chk.ok) {
         const j = await chk.json() as { exists?: boolean; in?: string | null }
         if (j.exists) {
-          setNameError("Já existe um registro com este nome (usuário ou serviço)")
+          setNameError("Já existe um registro com este nome")
           setLoading(false)
           return
         }
@@ -100,6 +124,16 @@ export function ModalAdicionarServico({ open, onOpenChange, onServicoAdicionado 
         created_at: new Date(row.createdAt ?? row.updatedAt),
         updated_at: new Date(row.updatedAt),
       }
+      // Save associations (selected barbers)
+      try {
+        if (novoServico.id) {
+          await fetch(`/api/admin/servicos/${encodeURIComponent(novoServico.id)}/barbeiros`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ barbeiroIds: selectedBarbeiros.map((b) => b.id) }),
+          })
+        }
+      } catch {}
       onServicoAdicionado(novoServico)
     } catch {
       // noop: could add toast later
@@ -111,6 +145,7 @@ export function ModalAdicionarServico({ open, onOpenChange, onServicoAdicionado 
     setDuracaoMinutos("")
     setPrecoBase("")
     setAtivo(true)
+    setSelectedBarbeiros([])
     setLoading(false)
   }
 
@@ -183,6 +218,40 @@ export function ModalAdicionarServico({ open, onOpenChange, onServicoAdicionado 
               <Switch id="ativo" checked={ativo} onCheckedChange={setAtivo} />
               <Label htmlFor="ativo">Serviço ativo</Label>
             </div>
+          {/* Associations */}
+          <div className="grid gap-2">
+            <Label>Barbeiros que realizam este serviço</Label>
+            <Autocomplete
+              value={barbeiroQuery}
+              onChange={setBarbeiroQuery}
+              onSelect={(s: Suggestion) => {
+                setBarbeiroQuery("")
+                setSelectedBarbeiros((cur) => cur.find((b) => b.id === s.id) ? cur : [...cur, { id: s.id, nome: s.name }])
+              }}
+              searchApi="/api/admin/barbeiros/search"
+              placeholder="Buscar barbeiro para adicionar"
+              required={false}
+            />
+            <div className="flex flex-wrap gap-2 pt-1">
+              {selectedBarbeiros.map((b) => (
+                <div key={b.id} className="inline-flex items-center gap-2 rounded-full border px-2 py-1 text-xs">
+                  <Avatar className="h-5 w-5">
+                    <AvatarImage />
+                    <AvatarFallback>{b.nome?.[0]?.toUpperCase() ?? 'B'}</AvatarFallback>
+                  </Avatar>
+                  <span>{b.nome}</span>
+                  <button
+                    type="button"
+                    className="rounded-full px-1 hover:bg-accent"
+                    onClick={() => setSelectedBarbeiros((cur) => cur.filter((x) => x.id !== b.id))}
+                    aria-label={`Remover ${b.nome}`}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

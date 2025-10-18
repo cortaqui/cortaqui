@@ -7,7 +7,14 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const q = (searchParams.get("q") ?? "").trim();
-    if (q.length < 2) return NextResponse.json({ users: [] });
+    if (q.length < 2) {
+      const rows = await db
+        .select({ id: servico.servicoId, name: servico.nome })
+        .from(servico)
+        .where(eq(servico.ativo, true))
+        .limit(10);
+      return NextResponse.json({ users: rows });
+    }
     const rows = await db
       .select({ id: servico.servicoId, name: servico.nome })
       .from(servico)

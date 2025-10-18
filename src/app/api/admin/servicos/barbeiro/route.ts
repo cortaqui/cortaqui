@@ -23,7 +23,8 @@ export async function GET(req: Request) {
       .leftJoin(servicoTable, eq(servicoTable.servicoId, servicoBarbeiro.servicoId))
       .leftJoin(usuario, eq(usuario.userId, servicoBarbeiro.barbeiroUserId));
 
-    const rows = barbeiroId ? await base.where(eq(servicoBarbeiro.barbeiroUserId, barbeiroId)) : await base;
+    const rowsRaw = barbeiroId ? await base.where(eq(servicoBarbeiro.barbeiroUserId, barbeiroId)) : await base;
+    const rows = rowsRaw.filter((r) => r.precoEspecifico !== null && typeof r.precoEspecifico !== 'undefined')
     const result = rows.map((r) => ({
       barbeiroUserId: r.barbeiroUserId,
       servicoId: r.servicoId,

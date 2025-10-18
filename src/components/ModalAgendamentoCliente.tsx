@@ -123,6 +123,26 @@ export function ModalAgendamentoCliente({ open, onOpenChange, onAgendamentoCriad
     })()
   }, [barbeiroSel?.id, duracaoMin])
 
+  // Update effective price when both serviço and barbeiro are selected
+  useEffect(() => {
+    if (!servicoSel?.id || !barbeiroSel?.id) return
+    void (async () => {
+      try {
+        const res = await fetch(`/api/cliente/servicos/${servicoSel.id}?barbeiroId=${barbeiroSel.id}`)
+        if (res.ok) {
+          const sUnknown: unknown = await res.json()
+          const s: Record<string, unknown> = (sUnknown && typeof sUnknown === 'object') ? (sUnknown as Record<string, unknown>) : {}
+          setServicoSel((prev) => {
+            if (!prev) return prev
+            const precoRaw = (typeof s.precoFinal !== 'undefined' ? s.precoFinal : s.precoBase)
+            const preco = typeof precoRaw === 'string' ? Number(precoRaw) : (typeof precoRaw === 'number' ? precoRaw : (prev.precoBase ?? 0))
+            return { ...prev, precoBase: preco }
+          })
+        }
+      } catch {}
+    })()
+  }, [servicoSel?.id, barbeiroSel?.id])
+
   // Recompute slots when inputs change
   useEffect(() => {
     if (!barbeiroSel?.id || !date || !servicoSel?.id) { setSlots([]); setSlotSel(null); return }
@@ -314,7 +334,7 @@ export function ModalAgendamentoCliente({ open, onOpenChange, onAgendamentoCriad
                   value={barbeiroQuery}
                   onChange={setBarbeiroQuery}
                   onSelect={(s) => { setBarbeiroSel(s); setBarbeiroQuery(s.name) }}
-                  searchApi="/api/admin/barbeiros/search"
+                  searchApi={servicoSel?.id ? `/api/admin/barbeiros/search?servicoId=${servicoSel.id}` : "/api/admin/barbeiros/search"}
                   placeholder="Buscar barbeiro"
                 />
               </CardContent>
