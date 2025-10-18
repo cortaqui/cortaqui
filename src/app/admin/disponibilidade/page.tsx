@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/com
 import { Badge } from "~/components/ui/badge"
 import type { Disponibilidade } from "~/lib/types"
 import { Clock, Plus, Trash2 } from 'lucide-react'
-import { UserAutocomplete, type Suggestion } from "~/components/UserAutocomplete"
+import { Autocomplete, type Suggestion } from "~/components/Autocomplete"
 import { ModalEditarDisponibilidade } from "~/components/ModalEditarDisponibilidade"
 import { ModalAdicionarBloqueio } from "~/components/ModalAdicionarBloqueio"
 import { ModalConfirmar } from "~/components/ModalConfirmar"
@@ -159,9 +159,9 @@ export default function DisponibilidadePage() {
         </CardHeader>
         <CardContent>
           <div className="w-full max-w-md">
-            <UserAutocomplete
+            <Autocomplete
               value={barbeiroNome}
-              onChange={(v) => setBarbeiroNome(v)}
+              onChange={(v: string) => setBarbeiroNome(v)}
               onSelect={async (s: Suggestion) => {
                 setBarbeiroNome(s.name)
                 try {

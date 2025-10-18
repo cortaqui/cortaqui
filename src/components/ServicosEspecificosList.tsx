@@ -48,7 +48,7 @@ export function ServicosEspecificosList({ refreshKey }: { refreshKey?: number })
               <TableRow>
                 <TableHead>Serviço</TableHead>
                 <TableHead>Barbeiro</TableHead>
-                <TableHead>Preço Específico</TableHead>
+                <TableHead className="text-right">Preço Específico</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -61,7 +61,7 @@ export function ServicosEspecificosList({ refreshKey }: { refreshKey?: number })
                 <TableRow key={`${r.barbeiroUserId}-${r.servicoId}`}>
                   <TableCell>{r.servicoNome ?? r.servicoId}</TableCell>
                   <TableCell>{r.barbeiroNome ?? r.barbeiroUserId}</TableCell>
-                  <TableCell>R$ {Number(r.precoEspecifico ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell className="text-right">R$ {Number(r.precoEspecifico ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button variant="outline" size="sm" onClick={() => { setEditing(r); setEditOpen(true) }}>

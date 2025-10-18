@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar"
 
 export type Suggestion = { id: string; name: string; email?: string; phone?: string; imageUrl?: string }
 
-export function UserAutocomplete({
+export function Autocomplete({
   value,
   onChange,
   onSelect,
@@ -26,20 +26,17 @@ export function UserAutocomplete({
   useEffect(() => {
     const controller = new AbortController()
     const q = value.trim()
-    if (q.length < 2) {
-      setSuggestions([])
-      return () => controller.abort()
-    }
+    const url = q.length < 2 ? `${searchApi}?limit=2` : `${searchApi}?q=${encodeURIComponent(q)}&limit=10`
     const t = window.setTimeout(() => {
       void (async () => {
         try {
-          const res = await fetch(`${searchApi}?q=${encodeURIComponent(q)}`, { signal: controller.signal })
+          const res = await fetch(url, { signal: controller.signal })
           if (!res.ok) return
           const data = (await res.json()) as { users?: Suggestion[] }
           setSuggestions(Array.isArray(data.users) ? data.users : [])
         } catch {}
       })()
-    }, 300)
+    }, 250)
     return () => {
       controller.abort()
       window.clearTimeout(t)
@@ -48,10 +45,10 @@ export function UserAutocomplete({
 
   return (
     <div className="grid gap-2">
-      {label && <label className="text-sm font-medium" htmlFor="user-autocomplete">{label}</label>}
+      {label && <label className="text-sm font-medium" htmlFor="autocomplete-input">{label}</label>}
       <div className="relative">
         <Input
-          id="user-autocomplete"
+          id="autocomplete-input"
           value={value}
           onChange={(e) => { onChange(e.target.value); setShow(true) }}
           onFocus={() => setShow(true)}
@@ -74,11 +71,19 @@ export function UserAutocomplete({
                 </Avatar>
                 <div className="text-left">
                   <div className="text-sm font-medium leading-none">{s.name}</div>
-                  <div className="text-xs text-muted-foreground">{s.email}</div>
+                  {s.email && <div className="text-xs text-muted-foreground">{s.email}</div>}
                 </div>
               </button>
             ))}
           </div>
+        )}
+        {show && value.trim().length >= 2 && suggestions.length === 0 && (
+          <div className="absolute z-20 mt-1 w-full rounded-md border bg-popover p-2 text-sm text-muted-foreground shadow">
+            Nenhum resultado
+          </div>
+        )}
+        {show && (
+          <div className="h-28" aria-hidden />
         )}
       </div>
     </div>

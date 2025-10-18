@@ -65,7 +65,7 @@ export function ModalEditarAgendamento({ open, onOpenChange, agendamento, onAgen
 
   // Recompute slots when inputs change
   useEffect(() => {
-    if (!agendamento?.barbeiro_user_id || !date) { setSlots([]); setSlotSel(null); return }
+    if (!agendamento?.barbeiro_user_id || !date) { setSlots([]); return }
     const eff = computeDailyWorkIntervals(dispon, agendamento.barbeiro_user_id, date)
     const dayBookings = bookings.filter((b) => b.inicio.getFullYear() === date.getFullYear() && b.inicio.getMonth() === date.getMonth() && b.inicio.getDate() === date.getDate())
     const slotDates = generateAvailableSlots(
@@ -78,16 +78,19 @@ export function ModalEditarAgendamento({ open, onOpenChange, agendamento, onAgen
     setSlots(slotDates)
   }, [agendamento?.barbeiro_user_id, date, dispon, bookings, duracaoMin])
 
-  const canSave = !!agendamento && !!slotSel
+  const initialDateMs = agendamento ? new Date(agendamento.data_hora).getTime() : null
+  const timeChanged = !!slotSel && initialDateMs !== null && slotSel.getTime() !== initialDateMs
+  const statusChanged = !!agendamento && status !== agendamento.status
+  const canSave = !!agendamento && (statusChanged || timeChanged)
 
   async function handleSalvar() {
     if (!agendamento || !slotSel) return
     setLoading(true)
     try {
-      const payload: Record<string, unknown> = {
-        dataHoraInicio: slotSel.toISOString(),
-        dataHoraFim: new Date(slotSel.getTime() + (duracaoMin * 60000)).toISOString(),
-        status: status.toUpperCase(),
+      const payload: Record<string, unknown> = { status: status.toUpperCase() }
+      if (timeChanged && slotSel) {
+        payload.dataHoraInicio = slotSel.toISOString()
+        payload.dataHoraFim = new Date(slotSel.getTime() + (duracaoMin * 60000)).toISOString()
       }
       const res = await fetch(`/api/agendamentos/${agendamento.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
       if (!res.ok) { console.error("update agendamento falhou", await res.text()); setLoading(false); return }
@@ -110,7 +113,7 @@ export function ModalEditarAgendamento({ open, onOpenChange, agendamento, onAgen
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-y-auto overflow-x-hidden">
+      <DialogContent className="sm:max-w-[900px] max-h-[85vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>Editar Agendamento</DialogTitle>
           <DialogDescription>Altere o status e o horário do agendamento</DialogDescription>
@@ -138,6 +141,7 @@ export function ModalEditarAgendamento({ open, onOpenChange, agendamento, onAgen
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="confirmado">Confirmado</SelectItem>
+                      <SelectItem value="concluido">Concluído</SelectItem>
                       <SelectItem value="cancelado">Cancelado</SelectItem>
                     </SelectContent>
                   </Select>

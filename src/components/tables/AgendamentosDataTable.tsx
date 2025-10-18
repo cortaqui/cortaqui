@@ -111,7 +111,7 @@ export function AgendamentosDataTable({
                 <TableHead>Serviço</TableHead>
                 <TableHead>Data/Hora</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Valor</TableHead>
+                <TableHead className="text-right">Valor</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -147,7 +147,7 @@ export function AgendamentosDataTable({
                     <TableCell>
                       <StatusBadge status={agendamento.status} />
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-right">
                       R$ {agendamento.preco_final.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                     </TableCell>
                     <TableCell className="text-right">

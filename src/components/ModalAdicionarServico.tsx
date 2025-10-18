@@ -32,6 +32,7 @@ export function ModalAdicionarServico({ open, onOpenChange, onServicoAdicionado 
   const [precoBase, setPrecoBase] = useState("")
   const [ativo, setAtivo] = useState(true)
   const [loading, setLoading] = useState(false)
+  const [nameError, setNameError] = useState<string | null>(null)
 
   type AdminServicoRow = {
     servicoId: string
@@ -63,6 +64,18 @@ export function ModalAdicionarServico({ open, onOpenChange, onServicoAdicionado 
     setLoading(true)
 
     try {
+      // Validate unique name across users and services
+      setNameError(null)
+      const chk = await fetch(`/api/admin/names/exists?name=${encodeURIComponent(nome)}`)
+      if (chk.ok) {
+        const j = await chk.json() as { exists?: boolean; in?: string | null }
+        if (j.exists) {
+          setNameError("Já existe um registro com este nome (usuário ou serviço)")
+          setLoading(false)
+          return
+        }
+      }
+
       const precoForApi = precoBase.replace(/\./g, "").replace(",", ".")
       const resp = await fetch("/api/admin/servicos", {
         method: "POST",
@@ -119,6 +132,7 @@ export function ModalAdicionarServico({ open, onOpenChange, onServicoAdicionado 
                 placeholder="Ex: Corte Masculino"
                 required
               />
+              {nameError && <p className="text-xs text-destructive">{nameError}</p>}
             </div>
             <div className="grid gap-2">
               <Label htmlFor="descricao">Descrição (opcional)</Label>

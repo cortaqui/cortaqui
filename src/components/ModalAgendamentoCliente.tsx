@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { Button } from "~/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "~/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "~/components/ui/dialog"
 import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
 import { Calendar } from "~/components/ui/calendar"
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
 import type { Agendamento } from "~/lib/types"
-import { UserAutocomplete, type Suggestion } from "~/components/UserAutocomplete"
+import { Autocomplete, type Suggestion } from "~/components/Autocomplete"
 import { Clock, DollarSign } from "lucide-react"
 import { computeDailyWorkIntervals, generateAvailableSlots, type DisponibilidadeItem } from "~/lib/agendamento-utils"
 
@@ -43,6 +43,7 @@ export function ModalAgendamentoCliente({ open, onOpenChange, onAgendamentoCriad
   const [clienteNome, setClienteNome] = useState("")
   const [clienteEmail, setClienteEmail] = useState("")
   const [clienteTelefone, setClienteTelefone] = useState("")
+  const [manual, setManual] = useState(false)
 
   const [servicoQuery, setServicoQuery] = useState("")
   const [servicoSel, setServicoSel] = useState<{ id: string; nome: string; duracaoMin?: number; precoBase?: number } | null>(null)
@@ -59,8 +60,8 @@ export function ModalAgendamentoCliente({ open, onOpenChange, onAgendamentoCriad
   const [loading, setLoading] = useState(false)
 
   // Derived
-  const clienteValidExisting = !!clienteSel
-  const clienteValidNew = clienteNome.trim().length > 0 && isValidEmail(clienteEmail) && (clienteTelefone === "" || isValidPhone(clienteTelefone))
+  const clienteValidExisting = !!clienteSel && !manual
+  const clienteValidNew = manual && (clienteNome.trim().length > 0 && isValidEmail(clienteEmail) && (clienteTelefone === "" || isValidPhone(clienteTelefone)))
   const clienteReady = clienteValidExisting || clienteValidNew
 
   const duracaoMin = servicoSel?.duracaoMin ?? 30
@@ -157,6 +158,7 @@ export function ModalAgendamentoCliente({ open, onOpenChange, onAgendamentoCriad
     setDispon([])
     setBookings([])
     setLoading(false)
+    setManual(false)
   }
 
   const canCreate = clienteReady && !!servicoSel?.id && !!barbeiroSel?.id && !!slotSel
@@ -235,11 +237,10 @@ export function ModalAgendamentoCliente({ open, onOpenChange, onAgendamentoCriad
   const emailValid = (typeof clienteSel?.email === 'string') ? true : isValidEmail(clienteEmail)
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) { resetAll(); onOpenChange(false) } }}>
-      <DialogContent className="sm:max-w-[900px] max-h-[85vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={(v) => { if (!v) { resetAll(); onOpenChange(false) } else { setManual(false) } }}>
+      <DialogContent className="sm:max-w-[900px] max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Agendar para Cliente</DialogTitle>
-          <DialogDescription>Preencha os dados e selecione a data/horário disponível</DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -248,38 +249,53 @@ export function ModalAgendamentoCliente({ open, onOpenChange, onAgendamentoCriad
             <Card>
               <CardHeader><CardTitle className="text-base">Cliente</CardTitle></CardHeader>
               <CardContent className="space-y-3">
-                <UserAutocomplete
-                  value={clienteQuery}
-                  onChange={setClienteQuery}
-                  onSelect={(s) => { setClienteSel(s); setClienteQuery(s.name); setClienteNome(s.name); setClienteEmail(s.email ?? ""); setClienteTelefone(s.phone ?? "") }}
-                  searchApi="/api/admin/clientes/search"
-                  label="Cliente"
-                  placeholder="Buscar cliente por nome ou email"
-                />
-                <div className="grid gap-2">
-                  <Label>Nome</Label>
-                  <Input value={clienteNome} onChange={(e) => { setClienteNome(e.target.value); setClienteSel(null) }} placeholder="Nome completo" />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Email</Label>
-                  <Input type="email" value={clienteEmail} onChange={(e) => { setClienteEmail(e.target.value); setClienteSel(null) }} placeholder="email@exemplo.com" />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Telefone</Label>
-                  <Input value={clienteTelefone} onChange={(e) => setClienteTelefone(formatPhone(e.target.value))} placeholder="(11) 99999-9999" />
-                </div>
+                {!manual && (
+                  <>
+                    <Autocomplete
+                      value={clienteQuery}
+                      onChange={(v) => { setClienteQuery(v); setClienteSel(null) }}
+                      onSelect={(s) => { setClienteSel(s); setClienteQuery(s.name); setClienteNome(s.name); setClienteEmail(s.email ?? ""); setClienteTelefone(s.phone ?? "") }}
+                      searchApi="/api/admin/clientes/search"
+                      label="Buscar"
+                      placeholder="Buscar cliente por nome ou email"
+                    />
+                    <div className="flex items-center gap-2 pt-1">
+                      <input id="manual" type="checkbox" className="h-4 w-4" checked={manual} onChange={(e) => setManual(e.target.checked)} />
+                      <label htmlFor="manual" className="text-sm">Agendar manualmente</label>
+                    </div>
+                  </>
+                )}
+                {manual && (
+                  <>
+                    <div className="grid gap-2">
+                      <Label>Nome</Label>
+                      <Input value={clienteNome} onChange={(e) => { setClienteNome(e.target.value); setClienteSel(null) }} placeholder="Nome completo" />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Email</Label>
+                      <Input type="email" value={clienteEmail} onChange={(e) => { setClienteEmail(e.target.value); setClienteSel(null) }} placeholder="email@exemplo.com" />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Telefone</Label>
+                      <Input value={clienteTelefone} onChange={(e) => setClienteTelefone(formatPhone(e.target.value))} placeholder="(11) 99999-9999" />
+                    </div>
+                    <div className="flex items-center gap-2 pt-1">
+                      <input id="manual-back" type="checkbox" className="h-4 w-4" checked={manual} onChange={(e) => setManual(e.target.checked)} />
+                      <label htmlFor="manual-back" className="text-sm">Agendar manualmente</label>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader><CardTitle className="text-base">Serviço</CardTitle></CardHeader>
               <CardContent className="space-y-3">
-                <UserAutocomplete
+                <Autocomplete
                   value={servicoQuery}
                   onChange={setServicoQuery}
                   onSelect={(s) => { setServicoSel({ id: s.id, nome: s.name }); setServicoQuery(s.name) }}
                   searchApi="/api/admin/servicos/search"
-                  label="Serviço"
                   placeholder="Buscar serviço"
                 />
                 {servicoSel && (
@@ -294,12 +310,11 @@ export function ModalAgendamentoCliente({ open, onOpenChange, onAgendamentoCriad
             <Card>
               <CardHeader><CardTitle className="text-base">Barbeiro</CardTitle></CardHeader>
               <CardContent>
-                <UserAutocomplete
+                <Autocomplete
                   value={barbeiroQuery}
                   onChange={setBarbeiroQuery}
                   onSelect={(s) => { setBarbeiroSel(s); setBarbeiroQuery(s.name) }}
                   searchApi="/api/admin/barbeiros/search"
-                  label="Barbeiro"
                   placeholder="Buscar barbeiro"
                 />
               </CardContent>
@@ -311,13 +326,13 @@ export function ModalAgendamentoCliente({ open, onOpenChange, onAgendamentoCriad
             <Card>
               <CardHeader><CardTitle className="text-base">Data</CardTitle></CardHeader>
               <CardContent>
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={(d) => setDate(d ?? undefined)}
-                  disabled={(d) => d < new Date()}
-                  className="rounded-md border"
-                />
+                    <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={(d) => setDate(d ?? undefined)}
+                    disabled={(d) => d < new Date()}
+                    className="rounded-md border"
+                    />
               </CardContent>
             </Card>
 

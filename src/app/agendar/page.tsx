@@ -9,7 +9,7 @@ import { useIsMobile } from "~/hooks/use-mobile"
 import { ClerkAuthButtons } from "~/components/ClerkAuthButtons"
 import { MobileNavSheet } from "~/components/MobileNavSheet"
 import { Logo } from "~/components/logo"
-import { UserAutocomplete, type Suggestion } from "~/components/UserAutocomplete"
+import { Autocomplete, type Suggestion } from "~/components/Autocomplete"
 import { SignedIn, SignedOut } from "@clerk/nextjs"
 import { computeDailyWorkIntervals, generateAvailableSlots, type DisponibilidadeItem } from "~/lib/agendamento-utils"
 
@@ -149,9 +149,9 @@ export default function AgendarPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <UserAutocomplete
+              <Autocomplete
                 value={servicoQuery}
-                onChange={setServicoQuery}
+                onChange={(v: string) => setServicoQuery(v)}
                 onSelect={(s) => { setServicoSel({ id: s.id, nome: s.name }); setServicoQuery(s.name) }}
                 searchApi="/api/servicos/search"
                 placeholder="Buscar serviço"
@@ -193,9 +193,9 @@ export default function AgendarPage() {
                 <CardDescription>Selecione o profissional desejado</CardDescription>
               </CardHeader>
               <CardContent>
-                <UserAutocomplete
+                <Autocomplete
                   value={barbeiroQuery}
-                  onChange={setBarbeiroQuery}
+                  onChange={(v: string) => setBarbeiroQuery(v)}
                   onSelect={(s) => { setBarbeiroSel(s); setBarbeiroQuery(s.name) }}
                   searchApi="/api/cliente/barbeiros/search"
                   placeholder="Buscar barbeiro"

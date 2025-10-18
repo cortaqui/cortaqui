@@ -5,7 +5,7 @@ import { Button } from "~/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "~/components/ui/dialog"
 import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
-import { UserAutocomplete, type Suggestion } from "~/components/UserAutocomplete"
+import { Autocomplete, type Suggestion } from "~/components/Autocomplete"
 
 export function ModalAdicionarServicoEspecifico({
   open,
@@ -65,7 +65,7 @@ export function ModalAdicionarServicoEspecifico({
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
-            <UserAutocomplete
+            <Autocomplete
               value={servicoNome}
               onChange={setServicoNome}
               onSelect={(s: Suggestion) => { setServicoNome(s.name); setServicoId(s.id) }}
@@ -73,7 +73,7 @@ export function ModalAdicionarServicoEspecifico({
               label="Serviço"
               placeholder="Digite para buscar o serviço"
             />
-            <UserAutocomplete
+            <Autocomplete
               value={barbeiroNome}
               onChange={setBarbeiroNome}
               onSelect={async (s: Suggestion) => {

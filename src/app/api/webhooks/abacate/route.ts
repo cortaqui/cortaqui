@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
 import { db } from "~/server/db";
-import { pagamento } from "~/server/db/schema";
+import { agendamento, pagamento } from "~/server/db/schema";
 
 import { env } from "~/env";
 
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true });
       }
 
-      // Atualiza o status do pagamento no seu banco de dados
+      // Atualiza o status do pagamento
       await db.update(pagamento).set({
         status: "APROVADO",
         idTransacaoGateway: billing.id,
@@ -55,6 +55,9 @@ export async function POST(req: Request) {
         dataPagamento: new Date(),
         metodo: billing.methods?.[0] ?? "PIX",
       }).where(sql`${pagamento.fkAgendamentoId} = ${agendamentoId}`);
+
+      // Marca o agendamento como CONCLUIDO
+      await db.update(agendamento).set({ status: "CONCLUIDO" }).where(sql`${agendamento.agendamentoId} = ${agendamentoId}`);
 
       return NextResponse.json({ ok: true });
     }

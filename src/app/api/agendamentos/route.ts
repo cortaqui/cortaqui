@@ -3,7 +3,7 @@ import { assertHasPermission, getCurrentUserRole } from "~/lib/auth";
 import { createAgendamento, listAgendamentosByRole, findUsuarioByEmail, createPagamento } from "~/server/db/queries";
 import { db } from "~/server/db";
 import { agendamento } from "~/server/db/schema";
-import { and, lt, gt, eq } from "drizzle-orm";
+import { and, lt, gt, eq, ne } from "drizzle-orm";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { z } from "zod";
 
@@ -60,11 +60,26 @@ export async function POST(req: Request) {
         and(
           eq(agendamento.fkBarbeiroId, barbeiro.userId),
           // (existing.start < newEnd) AND (existing.end > newStart)
-          and(lt(agendamento.dataHoraInicio, data.dataHoraFim), gt(agendamento.dataHoraFim, data.dataHoraInicio))
+          and(lt(agendamento.dataHoraInicio, data.dataHoraFim), gt(agendamento.dataHoraFim, data.dataHoraInicio)),
+          ne(agendamento.status, "CANCELADO")
         )
       )
       .limit(1);
     if (overlaps.length > 0) return NextResponse.json({ error: "Conflito de horário para o barbeiro" }, { status: 409 });
+
+    // overlap check for the same client
+    const overlapsClient = await db
+      .select({ id: agendamento.agendamentoId })
+      .from(agendamento)
+      .where(
+        and(
+          eq(agendamento.fkClienteId, cliente.userId),
+          and(lt(agendamento.dataHoraInicio, data.dataHoraFim), gt(agendamento.dataHoraFim, data.dataHoraInicio)),
+          ne(agendamento.status, "CANCELADO")
+        )
+      )
+      .limit(1);
+    if (overlapsClient.length > 0) return NextResponse.json({ error: "Conflito de horário para o cliente" }, { status: 409 });
 
     const row = await createAgendamento({
       fkClienteId: cliente.userId,

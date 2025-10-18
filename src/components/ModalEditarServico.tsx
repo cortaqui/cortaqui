@@ -33,6 +33,7 @@ export function ModalEditarServico({ open, onOpenChange, servico, onServicoEdita
   const [precoBase, setPrecoBase] = useState("")
   const [ativo, setAtivo] = useState(true)
   const [loading, setLoading] = useState(false)
+  const [nameError, setNameError] = useState<string | null>(null)
 
   useEffect(() => {
     if (servico) {
@@ -50,6 +51,17 @@ export function ModalEditarServico({ open, onOpenChange, servico, onServicoEdita
 
     setLoading(true)
     try {
+      // Validate unique name across users and services (exclude current service id)
+      setNameError(null)
+      const chk = await fetch(`/api/admin/names/exists?name=${encodeURIComponent(nome)}&excludeServicoId=${encodeURIComponent(servico.id)}`)
+      if (chk.ok) {
+        const j = await chk.json() as { exists?: boolean; in?: string | null }
+        if (j.exists) {
+          setNameError("Já existe um registro com este nome")
+          setLoading(false)
+          return
+        }
+      }
       const precoForApi = precoBase.replace(/\./g, "").replace(",", ".")
       const resp = await fetch(`/api/admin/servicos/${encodeURIComponent(servico.id)}`, {
         method: "PUT",
@@ -102,6 +114,7 @@ export function ModalEditarServico({ open, onOpenChange, servico, onServicoEdita
                 placeholder="Ex: Corte Masculino"
                 required
               />
+              {nameError && <p className="text-xs text-destructive">{nameError}</p>}
             </div>
             <div className="grid gap-2">
               <Label htmlFor="descricao">Descrição (opcional)</Label>

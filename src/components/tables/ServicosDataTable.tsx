@@ -18,8 +18,8 @@ interface ServicosDataTableProps {
   onDelete?: (servicoId: string) => void
 }
 
-export function ServicosDataTable({ 
-  servicos, 
+export function ServicosDataTable({
+  servicos,
   title = "Lista de Serviços",
   description,
   onEdit,
@@ -37,7 +37,7 @@ export function ServicosDataTable({
         servico.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
         servico.descricao?.toLowerCase().includes(searchTerm.toLowerCase()))
 
-      const matchesStatus = (statusFilter === "todos" || 
+      const matchesStatus = (statusFilter === "todos" ||
         (statusFilter === "ativo" && servico.ativo) ||
         (statusFilter === "inativo" && !servico.ativo))
 
@@ -98,9 +98,9 @@ export function ServicosDataTable({
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
-                <TableHead>Duração (min)</TableHead>
-                <TableHead>Preço Base</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Duração (min)</TableHead>
+                <TableHead className="text-right">Preço Base</TableHead>
+                <TableHead className="text-center">Status</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -108,8 +108,8 @@ export function ServicosDataTable({
               {paginatedServicos.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="h-24 text-center">
-                    {searchTerm || statusFilter !== "todos" 
-                      ? "Nenhum serviço encontrado com os filtros aplicados." 
+                    {searchTerm || statusFilter !== "todos"
+                      ? "Nenhum serviço encontrado com os filtros aplicados."
                       : "Nenhum serviço encontrado."
                     }
                   </TableCell>
@@ -125,11 +125,11 @@ export function ServicosDataTable({
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>{servico.duracao_minutos}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-right">{servico.duracao_minutos}</TableCell>
+                    <TableCell className="text-right">
                       R$ {servico.preco_base.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-center">
                       <Badge variant={servico.ativo ? "default" : "secondary"}>
                         {servico.ativo ? "Ativo" : "Inativo"}
                       </Badge>
@@ -137,18 +137,18 @@ export function ServicosDataTable({
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         {onEdit && (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => onEdit(servico)}
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
                         )}
                         {onDelete && (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => onDelete(servico.id)}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -181,15 +181,15 @@ export function ServicosDataTable({
               </Button>
               <div className="flex items-center space-x-1">
                 {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter(page => 
-                    page === 1 || 
-                    page === totalPages || 
+                  .filter(page =>
+                    page === 1 ||
+                    page === totalPages ||
                     Math.abs(page - currentPage) <= 1
                   )
                   .map((page, index, array) => {
                     const prevPage = array[index - 1]
                     const showEllipsis = prevPage && page - prevPage > 1
-                    
+
                     return (
                       <div key={page} className="flex items-center">
                         {showEllipsis && <span className="px-2">...</span>}

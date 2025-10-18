@@ -113,6 +113,27 @@ export async function POST(req: Request) {
     }
     if (overlaps.length > 0) return NextResponse.json({ error: "Conflito de horário para o barbeiro" }, { status: 409 });
 
+    // overlap check for the same client
+    let overlapsClient;
+    try {
+      overlapsClient = await db
+        .select({ id: agendamento.agendamentoId })
+        .from(agendamento)
+        .where(
+          and(
+            eq(agendamento.fkClienteId, cliente.userId),
+            lt(agendamento.dataHoraInicio, data.dataHoraFim),
+            gt(agendamento.dataHoraFim, data.dataHoraInicio),
+            ne(agendamento.status, "CANCELADO")
+          )
+        )
+        .limit(1);
+    } catch (overlapErr) {
+      console.error("POST /api/cliente/agendamentos overlap cliente check falhou:", { clienteId: cliente.userId, start: data.dataHoraInicio, end: data.dataHoraFim }, overlapErr)
+      return NextResponse.json({ error: "Falha ao verificar conflito do cliente" }, { status: 500 })
+    }
+    if (overlapsClient.length > 0) return NextResponse.json({ error: "Conflito de horário para o cliente" }, { status: 409 });
+
     // Raw SQL insert to avoid timestamp serialization issues
     const insertSql = sql`INSERT INTO "cortaqui_agendamento" (
       "agendamento_id",

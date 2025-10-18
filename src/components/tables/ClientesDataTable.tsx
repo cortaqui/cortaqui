@@ -31,7 +31,7 @@ export function ClientesDataTable({
 
   // Filter clientes based on search
   const filteredClientes = useMemo(() => {
-    return clientes.filter((cliente) => {
+    const filtered = clientes.filter((cliente) => {
       const matchesSearch = (searchTerm === "" ||
         cliente.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
         cliente.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -39,6 +39,8 @@ export function ClientesDataTable({
 
       return matchesSearch
     })
+    // sort alphabetically by nome
+    return filtered.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }))
   }, [clientes, searchTerm])
 
   // Pagination

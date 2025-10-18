@@ -7,7 +7,7 @@ import { Button } from "~/components/ui/button"
 import { StatusBadge } from "~/components/StatusBadge"
 import type { Agendamento } from "~/lib/types"
 import { Filter, Calendar } from "lucide-react"
-import { UserAutocomplete } from "~/components/UserAutocomplete"
+import { Autocomplete } from "~/components/Autocomplete"
 
 export default function HistoricoServicosPage() {
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([])
@@ -143,9 +143,9 @@ export default function HistoricoServicosPage() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div className="grid gap-2">
               <Label>Cliente</Label>
-              <UserAutocomplete
+              <Autocomplete
                 value={clienteQuery}
-                onChange={setClienteQuery}
+                onChange={(v: string) => setClienteQuery(v)}
                 onSelect={(s) => { setClienteSelecionado(s.id); setClienteQuery(s.name) }}
                 searchApi="/api/barbeiro/clientes/search"
                 placeholder="Buscar cliente..."
@@ -154,9 +154,9 @@ export default function HistoricoServicosPage() {
 
             <div className="grid gap-2">
               <Label>Serviço</Label>
-              <UserAutocomplete
+              <Autocomplete
                 value={servicoQuery}
-                onChange={setServicoQuery}
+                onChange={(v: string) => setServicoQuery(v)}
                 onSelect={(s) => { setServicoSelecionado(s.id); setServicoQuery(s.name) }}
                 searchApi="/api/servicos/search"
                 placeholder="Buscar serviço..."

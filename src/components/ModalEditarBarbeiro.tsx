@@ -24,6 +24,7 @@ export function ModalEditarBarbeiro({
   const [nome, setNome] = useState(barbeiro?.nome ?? "")
   const [telefone, setTelefone] = useState(barbeiro?.telefone ?? "")
   const [loading, setLoading] = useState(false)
+  const [nameError, setNameError] = useState<string | null>(null)
 
   // Sync fields with current barbeiro when modal opens or target changes
   useEffect(() => {
@@ -47,6 +48,20 @@ export function ModalEditarBarbeiro({
     try {
       const nextNome = (nome ?? "").trim()
       const nextTelefone = (telefone ?? "").trim()
+
+      // unique name check across users and services, excluding current user id
+      setNameError(null)
+      if (nextNome && nextNome !== (barbeiro.nome ?? "")) {
+        const chk = await fetch(`/api/admin/names/exists?name=${encodeURIComponent(nextNome)}&excludeUserId=${encodeURIComponent(barbeiro.id)}`)
+        if (chk.ok) {
+          const j = await chk.json() as { exists?: boolean; in?: string | null }
+          if (j.exists) {
+            setNameError("Já existe um registro com este nome")
+            setLoading(false)
+            return
+          }
+        }
+      }
 
       const payload: { nome?: string; telefone?: string } = {}
       if (nextNome.length > 0 && nextNome !== (barbeiro.nome ?? "")) {
@@ -88,6 +103,7 @@ export function ModalEditarBarbeiro({
           <div className="grid gap-2">
             <label htmlFor="nome" className="text-sm font-medium">Nome</label>
             <Input id="nome" value={nome} onChange={(e) => setNome(e.target.value)} />
+            {nameError && <p className="text-xs text-destructive">{nameError}</p>}
           </div>
           <div className="grid gap-2">
             <label htmlFor="telefone" className="text-sm font-medium">Telefone</label>
