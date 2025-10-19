@@ -55,8 +55,8 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
     await assertHasAnyRole(["ADMIN"]);
     const { id } = await params;
     console.log("DELETE /api/admin/barbeiros/[id]", { id })
-    // Use raw SQL to avoid timestamp serialization issues
-    await db.execute(sql`UPDATE cortaqui_usuario SET deleted_at = NOW(), updated_at = NOW() WHERE user_id = ${id}`)
+    // Soft delete: mark deleted_at and downgrade role to CLIENTE
+    await db.execute(sql`UPDATE cortaqui_usuario SET deleted_at = NOW(), tipo_usuario = 'CLIENTE', updated_at = NOW() WHERE user_id = ${id}`)
     const [row] = await db.select().from(usuario).where(eq(usuario.userId, id)).limit(1);
     return NextResponse.json(row ?? {});
   } catch (e) {

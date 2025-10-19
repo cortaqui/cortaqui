@@ -24,8 +24,8 @@ export default function AgendamentosPage() {
       try {
         const [resAg, resClientes, resBarbeiros, resServicos] = await Promise.all([
           fetch("/api/agendamentos", { cache: "no-store" }),
-          fetch("/api/admin/clientes", { cache: "no-store" }),
-          fetch("/api/admin/barbeiros", { cache: "no-store" }),
+          fetch("/api/admin/clientes?includeDeleted=1", { cache: "no-store" }),
+          fetch("/api/admin/barbeiros?includeDeleted=1", { cache: "no-store" }),
           fetch("/api/admin/servicos", { cache: "no-store" }),
         ])
         if (!resAg.ok) return

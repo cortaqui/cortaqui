@@ -68,11 +68,12 @@ export async function computeEffectiveServicoPrice(params: { servicoId: string; 
 
 export async function isBarbeiroAllowedForServico(params: { barbeiroId: string; servicoId: string }) {
   const { barbeiroId, servicoId } = params;
-  const [{ c: assocCount }] = await db
+  const assocArr = await db
     .select({ c: count() })
     .from(servicoBarbeiro)
     .where(eq(servicoBarbeiro.servicoId, servicoId));
-  if ((assocCount ?? 0) === 0) return true;
+  const assocCount = assocArr[0]?.c ?? 0;
+  if (assocCount === 0) return true;
   const rows = await db
     .select({ barbeiroUserId: servicoBarbeiro.barbeiroUserId })
     .from(servicoBarbeiro)
@@ -82,11 +83,12 @@ export async function isBarbeiroAllowedForServico(params: { barbeiroId: string; 
 }
 
 export async function listBarbeirosForServico(servicoId: string) {
-  const [{ c: assocCount }] = await db
+  const assocArr = await db
     .select({ c: count() })
     .from(servicoBarbeiro)
     .where(eq(servicoBarbeiro.servicoId, servicoId));
-  if ((assocCount ?? 0) === 0) {
+  const assocCount = assocArr[0]?.c ?? 0;
+  if (assocCount === 0) {
     // allow-all: return all barbers (active)
     return await db
       .select({ id: usuario.userId, nome: usuario.nome, email: usuario.email, telefone: usuario.telefone })

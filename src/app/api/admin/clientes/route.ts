@@ -2,17 +2,22 @@ import { NextResponse } from "next/server";
 import { assertHasAnyRole } from "~/lib/auth";
 import { db } from "~/server/db";
 import { usuario } from "~/server/db/schema";
-import { eq, and, isNull } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { clerkClient } from "@clerk/nextjs/server";
 import { z } from "zod";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     await assertHasAnyRole(["ADMIN"]);
-    const rows = await db
-      .select()
-      .from(usuario)
-      .where(and(eq(usuario.tipoUsuario, "CLIENTE"), isNull(usuario.deletedAt)));
+    const { searchParams } = new URL(req.url)
+    const includeDeleted = searchParams.get("includeDeleted") === "1"
+    const base = db.select().from(usuario).where(eq(usuario.tipoUsuario, "CLIENTE"))
+    const rows = includeDeleted
+      ? await base
+      : await db
+          .select()
+          .from(usuario)
+          .where(and(eq(usuario.tipoUsuario, "CLIENTE"), isNull(usuario.deletedAt)))
     return NextResponse.json(rows);
   } catch (e) {
     if (e instanceof Response) return e;
@@ -40,13 +45,13 @@ export async function POST(req: Request) {
     try {
       const existing = await db.select().from(usuario).where(eq(usuario.email, data.email)).limit(1);
       if (existing.length > 0) {
-        const _ = await db
+        await db
           .update(usuario)
           .set({ nome: data.nome, tipoUsuario: "CLIENTE", ...(data.telefone ? { telefone: data.telefone } : {}), updatedAt: new Date() })
           .where(eq(usuario.email, data.email));
         row = (await db.select().from(usuario).where(eq(usuario.email, data.email)).limit(1))[0];
       } else {
-        const _ = await db
+        await db
           .insert(usuario)
           .values({ nome: data.nome, email: data.email, tipoUsuario: "CLIENTE", hashSenha: "clerk-managed", ...(data.telefone ? { telefone: data.telefone } : {}) });
         row = (await db.select().from(usuario).where(eq(usuario.email, data.email)).limit(1))[0];

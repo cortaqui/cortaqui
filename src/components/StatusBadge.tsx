@@ -9,8 +9,6 @@ const getStatusBadgeVariant = (status: Agendamento["status"]) => {
   switch (status) {
     case "concluido":
       return "success"
-    case "em_andamento":
-      return "default"
     case "confirmado":
       return "info"
     case "cancelado":
@@ -27,8 +25,6 @@ const getStatusLabel = (status: Agendamento["status"]) => {
       return "Agendado"
     case "confirmado":
       return "Confirmado"
-    case "em_andamento":
-      return "Em Andamento"
     case "concluido":
       return "Concluído"
     case "cancelado":

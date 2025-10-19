@@ -54,15 +54,17 @@ export function ModalAdicionarBarbeiro({ open, onOpenChange, onBarbeiroAdicionad
     e.preventDefault()
     setLoading(true)
     try {
-      // Validate unique name across users and services
+      // Validate unique name only when creating manually or no user selected
       setNameError(null)
-      const chk = await fetch(`/api/admin/names/exists?name=${encodeURIComponent(nome)}`)
-      if (chk.ok) {
-        const j = await chk.json() as { exists?: boolean; in?: string | null }
-        if (j.exists) {
-          setNameError("Já existe um registro com este nome")
-          setLoading(false)
-          return
+      if (!clerkUserId) {
+        const chk = await fetch(`/api/admin/names/exists?name=${encodeURIComponent(nome)}`)
+        if (chk.ok) {
+          const j = await chk.json() as { exists?: boolean; in?: string | null }
+          if (j.exists) {
+            setNameError("Já existe um registro com este nome")
+            setLoading(false)
+            return
+          }
         }
       }
       const res = await fetch('/api/admin/barbeiros', {

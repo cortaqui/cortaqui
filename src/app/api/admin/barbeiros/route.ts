@@ -3,16 +3,21 @@ import { assertHasAnyRole } from "~/lib/auth";
 import { db } from "~/server/db";
 import { usuario } from "~/server/db/schema";
 import { clerkClient } from "@clerk/nextjs/server";
-import { eq, and, isNull } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     await assertHasAnyRole(["ADMIN"]);
-    const rows = await db
-      .select()
-      .from(usuario)
-      .where(and(eq(usuario.tipoUsuario, "BARBEIRO"), isNull(usuario.deletedAt)));
+    const { searchParams } = new URL(req.url)
+    const includeDeleted = searchParams.get("includeDeleted") === "1"
+    const base = db.select().from(usuario).where(eq(usuario.tipoUsuario, "BARBEIRO"))
+    const rows = includeDeleted
+      ? await base
+      : await db
+          .select()
+          .from(usuario)
+          .where(and(eq(usuario.tipoUsuario, "BARBEIRO"), isNull(usuario.deletedAt)))
     return NextResponse.json(rows);
   } catch (e) {
     if (e instanceof Response) return e;
@@ -46,6 +51,7 @@ export async function POST(req: Request) {
           .set({
             nome: data.nome,
             tipoUsuario: "BARBEIRO",
+            deletedAt: null,
             ...(data.telefone ? { telefone: data.telefone } : {}),
             updatedAt: new Date(),
           })
