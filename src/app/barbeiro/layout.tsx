@@ -31,8 +31,6 @@ export default function BarbeiroLayout({
                   items={[
                     { title: "Agenda", url: "/barbeiro/agenda", icon: CalendarDays },
                     { title: "Histórico", url: "/barbeiro/historico-servicos", icon: History },
-                    { title: "Agendar", url: "/agendar", icon: CalendarDays },
-                    { title: "Meus Agendamentos", url: "/meus-agendamentos", icon: User },
                   ]}
                 />
               </div>

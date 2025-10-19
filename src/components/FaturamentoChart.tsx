@@ -4,14 +4,7 @@ import * as React from "react"
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 
 import { useIsMobile } from "../hooks/use-mobile"
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "../components/ui/card"
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import type { ChartConfig } from "../components/ui/chart"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "../components/ui/chart"
 import {
@@ -35,7 +28,7 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
-export function FaturamentoChart() {
+export function FaturamentoChart({ range, hideSelectors = false }: { range?: { start: Date; end: Date }; hideSelectors?: boolean }) {
   const isMobile = useIsMobile()
   const [timeRange, setTimeRange] = React.useState("90d")
   const [data, setData] = React.useState<AreaPoint[]>([])
@@ -73,6 +66,9 @@ export function FaturamentoChart() {
 
   const filteredData = data.filter((item) => {
     const date = new Date(item.date)
+    if (range) {
+      return date >= range.start && date <= range.end
+    }
     const referenceDate = new Date()
     let daysToSubtract = 90
     if (timeRange === "30d") {
@@ -89,39 +85,41 @@ export function FaturamentoChart() {
     <Card className="..container/card">
       <CardHeader>
         <CardTitle>Evolução do Faturamento</CardTitle>
-        <CardAction>
-          <ToggleGroup
-            type="single"
-            value={timeRange}
-            onValueChange={setTimeRange}
-            variant="outline"
-            className="hidden *:data-[slot=toggle-group-item]:!px-4 ..[767px]/card:flex"
-          >
-            <ToggleGroupItem value="90d">Últimos 3 meses</ToggleGroupItem>
-            <ToggleGroupItem value="30d">Últimos 30 dias</ToggleGroupItem>
-            <ToggleGroupItem value="7d">Últimos 7 dias</ToggleGroupItem>
-          </ToggleGroup>
-          <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger
-              className="flex w-40 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate ..[767px]/card:hidden"
-              size="sm"
-              aria-label="Select a value"
+        {!hideSelectors && (
+          <CardAction>
+            <ToggleGroup
+              type="single"
+              value={timeRange}
+              onValueChange={setTimeRange}
+              variant="outline"
+              className="hidden *:data-[slot=toggle-group-item]:!px-4 ..[767px]/card:flex"
             >
-              <SelectValue placeholder="Last 3 months" />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl">
-              <SelectItem value="90d" className="rounded-lg">
-                Últimos 3 meses
-              </SelectItem>
-              <SelectItem value="30d" className="rounded-lg">
-                Últimos 30 dias
-              </SelectItem>
-              <SelectItem value="7d" className="rounded-lg">
-                Últimos 7 dias
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </CardAction>
+              <ToggleGroupItem value="90d">Últimos 3 meses</ToggleGroupItem>
+              <ToggleGroupItem value="30d">Últimos 30 dias</ToggleGroupItem>
+              <ToggleGroupItem value="7d">Últimos 7 dias</ToggleGroupItem>
+            </ToggleGroup>
+            <Select value={timeRange} onValueChange={setTimeRange}>
+              <SelectTrigger
+                className="flex w-40 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate ..[767px]/card:hidden"
+                size="sm"
+                aria-label="Select a value"
+              >
+                <SelectValue placeholder="Last 3 months" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="90d" className="rounded-lg">
+                  Últimos 3 meses
+                </SelectItem>
+                <SelectItem value="30d" className="rounded-lg">
+                  Últimos 30 dias
+                </SelectItem>
+                <SelectItem value="7d" className="rounded-lg">
+                  Últimos 7 dias
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </CardAction>
+        )}
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
         <ChartContainer

@@ -12,6 +12,8 @@ import { useIsMobile } from "~/hooks/use-mobile"
 import { ClerkAuthButtons } from "~/components/ClerkAuthButtons"
 import { MobileNavSheet } from "~/components/MobileNavSheet"
 import { Logo } from "~/components/logo"
+import { CalendarDays } from "lucide-react"
+import { User } from "lucide-react"
 
 export default function MeusAgendamentosPage() {
   const isMobile = useIsMobile()
@@ -98,8 +100,8 @@ export default function MeusAgendamentosPage() {
               <ClerkAuthButtons />
               <MobileNavSheet
                 items={[
-                  { title: "Agendar", url: "/agendar" },
-                  { title: "Meus Agendamentos", url: "/meus-agendamentos" },
+                  { title: "Agendar", url: "/agendar", icon: CalendarDays },
+                    { title: "Meus Agendamentos", url: "/meus-agendamentos", icon: User },
                 ]}
               />
             </div>

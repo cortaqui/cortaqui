@@ -140,11 +140,17 @@ export function EventCalendar({
     setCurrentDate(new Date());
   };
 
-  const handleEventSelect = (event: CalendarEvent) => {
-    console.log("Event selected:", event); // Debug log
-    setSelectedEvent(event);
-    setIsEventDialogOpen(true);
+//   const handleEventSelect = (event: CalendarEvent) => {
+//     console.log("Event selected:", event); // Debug log
+//     setSelectedEvent(event);
+//     setIsEventDialogOpen(true);
+//   };
+
+  // Desabilitado: não abrir diálogo ao clicar no evento
+  const handleEventSelect = (_event: CalendarEvent) => {
+    /* no-op */
   };
+
 
   // const handleEventCreate = (startTime: Date) => {
   //   console.log("Creating new event at:", startTime); // Debug log

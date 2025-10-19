@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select"
 import { AgendamentoChart } from "~/components/AgendamentoChart"
 import { FaturamentoChart } from "~/components/FaturamentoChart"
 import { BarChart3, TrendingUp, Users, DollarSign } from "lucide-react"
@@ -10,14 +11,19 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer } from 
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "~/components/ui/chart"
 
 export default function RelatoriosPage() {
-  // const [periodoSelecionado, setPeriodoSelecionado] = useState("6meses")
+  const [periodoSelecionado, setPeriodoSelecionado] = useState("ultimo_mes")
   const [faturamentoTotal, setFaturamentoTotal] = useState(0)
   const [totalAgendamentos, setTotalAgendamentos] = useState(0)
   const [totalClientes, setTotalClientes] = useState(0)
   const [totalServicos, setTotalServicos] = useState(0)
   const [agPorDiaSemana, setAgPorDiaSemana] = useState<Array<{ dia: string; agendamentos: number }>>([])
+  const [range, setRange] = useState<{ start: Date; end: Date }>(() => {
+    const now = new Date()
+    const start = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
+    return { start, end: now }
+  })
 
-  // Buscar dados reais de APIs
+  // Buscar dados reais de APIs, atualizando conforme o range
   useEffect(() => {
     const fetchAll = async () => {
       try {
@@ -27,10 +33,16 @@ export default function RelatoriosPage() {
           fetch("/api/admin/servicos").then((r) => (r.status === 200 ? r.json() : Promise.resolve([]))),
         ])
         const ag = (Array.isArray(agRes) ? agRes : []) as Array<{ dataHoraInicio?: string; data_hora?: string; valorCobrado?: string; status?: string }>
-        setTotalAgendamentos(ag.length)
+        const inRange = (iso?: string) => {
+          if (!iso) return false
+          const d = new Date(iso)
+          return d >= range.start && d <= range.end
+        }
+        const agFiltered = ag.filter((a) => inRange(a.dataHoraInicio ?? a.data_hora))
+        setTotalAgendamentos(agFiltered.length)
         setTotalClientes(Array.isArray(cliRes) ? (cliRes as unknown[]).length : 0)
         setTotalServicos(Array.isArray(servRes) ? (servRes as unknown[]).length : 0)
-        const fat = ag.reduce((acc, a) => acc + (a.status === 'CONCLUIDO' && a.valorCobrado ? Number(a.valorCobrado) : 0), 0)
+        const fat = agFiltered.reduce((acc, a) => acc + (a.status === 'CONCLUIDO' && a.valorCobrado ? Number(a.valorCobrado) : 0), 0)
         setFaturamentoTotal(fat)
 
         // Agendamentos por dia da semana
@@ -47,7 +59,7 @@ export default function RelatoriosPage() {
           }
         }
         const counts = new Array(7).fill(0) as number[]
-        for (const a of ag) {
+        for (const a of agFiltered) {
           const iso = a.dataHoraInicio ?? a.data_hora
           if (!iso) continue
           const d = new Date(iso)
@@ -58,7 +70,35 @@ export default function RelatoriosPage() {
       } catch {}
     }
     void fetchAll()
-  }, [])
+  }, [range])
+
+  const options = [
+    { value: "ultima_semana", label: "Última semana" },
+    { value: "ultimo_mes", label: "Último mês" },
+    { value: "ultimo_semestre", label: "Último semestre" },
+    { value: "ytd", label: "YTD" },
+    { value: "todo_periodo", label: "Todo o período" },
+  ]
+
+  useEffect(() => {
+    const now = new Date()
+    let start = new Date(now)
+    if (periodoSelecionado === "ultima_semana") {
+      start = new Date(now)
+      start.setDate(start.getDate() - 7)
+    } else if (periodoSelecionado === "ultimo_mes") {
+      start = new Date(now)
+      start.setMonth(start.getMonth() - 1)
+    } else if (periodoSelecionado === "ultimo_semestre") {
+      start = new Date(now)
+      start.setMonth(start.getMonth() - 6)
+    } else if (periodoSelecionado === "ytd") {
+      start = new Date(now.getFullYear(), 0, 1)
+    } else if (periodoSelecionado === "todo_periodo") {
+      start = new Date(2025, 8, 1) // 01/09/2025
+    }
+    setRange({ start, end: now })
+  }, [periodoSelecionado])
 
   const chartConfigBar = {
     agendamentos: {
@@ -82,21 +122,16 @@ export default function RelatoriosPage() {
           <p className="text-muted-foreground">Análise detalhada do desempenho da barbearia</p>
         </div>
         <div className="flex items-center gap-2">
-          {/* <Select value={periodoSelecionado} onValueChange={setPeriodoSelecionado}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
+          <Select value={periodoSelecionado} onValueChange={setPeriodoSelecionado}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Período" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="1mes">Último mês</SelectItem>
-              <SelectItem value="3meses">Últimos 3 meses</SelectItem>
-              <SelectItem value="6meses">Últimos 6 meses</SelectItem>
-              <SelectItem value="1ano">Último ano</SelectItem>
+              {options.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
             </SelectContent>
-          </Select> */}
-          {/* <Button variant="outline">
-            <Download className="mr-2 h-4 w-4" />
-            Exportar
-          </Button> */}
+          </Select>
         </div>
       </div>
 
@@ -157,7 +192,7 @@ export default function RelatoriosPage() {
 
           {/* Gráficos */}
           <div className="grid gap-4 md:grid-cols-2">
-                <AgendamentoChart />
+                <AgendamentoChart range={range} hideSelectors />
 
             <Card>
               <CardHeader>
@@ -185,10 +220,10 @@ export default function RelatoriosPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Evolução do Faturamento</CardTitle>
-                <CardDescription>Faturamento mensal, trimestral e semestral</CardDescription>
+                <CardDescription>Faturamento agregado no período selecionado</CardDescription>
               </CardHeader>
               <CardContent>
-                <FaturamentoChart />
+                <FaturamentoChart range={range} hideSelectors />
               </CardContent>
             </Card>
 

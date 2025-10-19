@@ -20,12 +20,29 @@ export async function GET(req: Request) {
     }
     const { searchParams } = new URL(req.url);
     const q = (searchParams.get("q") ?? "").trim();
-    if (q.length < 2) return NextResponse.json({ users: [] });
 
     // Resolve current barber id
     if (!email) return NextResponse.json({ users: [] });
     const [me] = await db.select().from(usuario).where(eq(usuario.email, email)).limit(1);
     if (!me) return NextResponse.json({ users: [] });
+
+    // Zero-query: return recent clients for this barber
+    if (q.length < 2) {
+      const recent = await db
+        .select({ id: usuario.userId, name: usuario.nome, email: usuario.email })
+        .from(agendamento)
+        .leftJoin(usuario, eq(usuario.userId, agendamento.fkClienteId))
+        .where(eq(agendamento.fkBarbeiroId, me.userId))
+        .limit(50);
+      // Deduplicate by id, preserve order
+      const seen = new Set<string>();
+      const dedup = recent.filter((r) => {
+        const id = String(r.id ?? "");
+        if (!id || seen.has(id)) return false;
+        seen.add(id); return true;
+      }).slice(0, 10);
+      return NextResponse.json({ users: dedup });
+    }
 
     // Find distinct clients who have agendamentos with this barber and match query
     const rows = await db

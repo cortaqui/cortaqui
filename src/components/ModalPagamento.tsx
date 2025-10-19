@@ -128,7 +128,6 @@ export function ModalPagamento({
             <div className="flex items-center justify-between">
               <span className="text-lg font-semibold">Total a Pagar:</span>
               <div className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
                 <span className="text-2xl font-bold">
                   R$ {agendamento.preco_final.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </span>
@@ -137,7 +136,7 @@ export function ModalPagamento({
           </div>
 
           <div className="mt-4 text-sm text-muted-foreground">
-            <p>• Pagamento seguro via gateway integrado</p>
+            {/* <p>• Pagamento seguro via gateway integrado</p> */}
             {/* <p>• Aceita cartão de crédito e débito</p> */}
             {/* <p>• Comprovante enviado por email</p> */}
           </div>

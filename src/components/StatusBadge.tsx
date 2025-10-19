@@ -3,22 +3,21 @@ import type { Agendamento } from "~/lib/types"
 
 interface StatusBadgeProps {
   status: Agendamento["status"]
-  variant?: "default" | "compact"
 }
 
 const getStatusBadgeVariant = (status: Agendamento["status"]) => {
   switch (status) {
     case "concluido":
-      return "default"
+      return "success"
     case "em_andamento":
       return "default"
     case "confirmado":
-      return "secondary"
+      return "info"
     case "cancelado":
       return "destructive"
     case "agendado":
     default:
-      return "outline"
+      return "warning"
   }
 }
 
@@ -39,7 +38,7 @@ const getStatusLabel = (status: Agendamento["status"]) => {
   }
 }
 
-export function StatusBadge({ status, variant = "default" }: StatusBadgeProps) {
+export function StatusBadge({ status }: StatusBadgeProps) {
   return (
     <Badge variant={getStatusBadgeVariant(status)}>
       {getStatusLabel(status)}
