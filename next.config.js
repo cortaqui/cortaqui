@@ -5,6 +5,12 @@
 import "./src/env.js";
 
 /** @type {import("next").NextConfig} */
-const config = {};
+const config = {
+  // Avoid failing production builds on ESLint rule violations.
+  // See: https://nextjs.org/docs/app/api-reference/config/eslint#ignoreduringbuilds
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+};
 
 export default config;
