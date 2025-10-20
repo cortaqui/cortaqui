@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { assertHasPermission } from "~/lib/auth";
 import { findUsuarioById } from "~/server/db/queries";
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await assertHasPermission("usuario:read");
-    const user = await findUsuarioById(params.id);
+    const { id } = await params;
+    const user = await findUsuarioById(id);
     if (!user) return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
     return NextResponse.json(user);
   } catch (err) {
