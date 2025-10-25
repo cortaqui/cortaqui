@@ -1,0 +1,574 @@
+{
+  "id": "07d48726-97e2-405f-bd7e-dc78b15ee55e",
+  "prevId": "7ca627c1-f05c-4a5d-b3fc-9a5f480d6677",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.cortaqui_agendamento": {
+      "name": "cortaqui_agendamento",
+      "schema": "",
+      "columns": {
+        "agendamento_id": {
+          "name": "agendamento_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "data_hora_inicio": {
+          "name": "data_hora_inicio",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data_hora_fim": {
+          "name": "data_hora_fim",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "status_agendamento_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "observacoes_cliente": {
+          "name": "observacoes_cliente",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "valor_cobrado": {
+          "name": "valor_cobrado",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_por_admin": {
+          "name": "criado_por_admin",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "fk_Servico_servico_id": {
+          "name": "fk_Servico_servico_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fk_Usuario_cliente_id": {
+          "name": "fk_Usuario_cliente_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fk_Usuario_barbeiro_id": {
+          "name": "fk_Usuario_barbeiro_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "cortaqui_agendamento_fk_Servico_servico_id_cortaqui_servico_servico_id_fk": {
+          "name": "cortaqui_agendamento_fk_Servico_servico_id_cortaqui_servico_servico_id_fk",
+          "tableFrom": "cortaqui_agendamento",
+          "tableTo": "cortaqui_servico",
+          "columnsFrom": [
+            "fk_Servico_servico_id"
+          ],
+          "columnsTo": [
+            "servico_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "cortaqui_agendamento_fk_Usuario_cliente_id_cortaqui_usuario_user_id_fk": {
+          "name": "cortaqui_agendamento_fk_Usuario_cliente_id_cortaqui_usuario_user_id_fk",
+          "tableFrom": "cortaqui_agendamento",
+          "tableTo": "cortaqui_usuario",
+          "columnsFrom": [
+            "fk_Usuario_cliente_id"
+          ],
+          "columnsTo": [
+            "user_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "cortaqui_agendamento_fk_Usuario_barbeiro_id_cortaqui_usuario_user_id_fk": {
+          "name": "cortaqui_agendamento_fk_Usuario_barbeiro_id_cortaqui_usuario_user_id_fk",
+          "tableFrom": "cortaqui_agendamento",
+          "tableTo": "cortaqui_usuario",
+          "columnsFrom": [
+            "fk_Usuario_barbeiro_id"
+          ],
+          "columnsTo": [
+            "user_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.cortaqui_disponibilidade": {
+      "name": "cortaqui_disponibilidade",
+      "schema": "",
+      "columns": {
+        "disponibilidade_id": {
+          "name": "disponibilidade_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "dia_semana": {
+          "name": "dia_semana",
+          "type": "dia_semana_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hora_inicio": {
+          "name": "hora_inicio",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hora_fim": {
+          "name": "hora_fim",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tipo": {
+          "name": "tipo",
+          "type": "tipo_disponibilidade_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data_especifica": {
+          "name": "data_especifica",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "recorrente": {
+          "name": "recorrente",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "fk_Usuario_admin_id": {
+          "name": "fk_Usuario_admin_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fk_Usuario_barbeiro_id": {
+          "name": "fk_Usuario_barbeiro_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "cortaqui_disponibilidade_fk_Usuario_admin_id_cortaqui_usuario_user_id_fk": {
+          "name": "cortaqui_disponibilidade_fk_Usuario_admin_id_cortaqui_usuario_user_id_fk",
+          "tableFrom": "cortaqui_disponibilidade",
+          "tableTo": "cortaqui_usuario",
+          "columnsFrom": [
+            "fk_Usuario_admin_id"
+          ],
+          "columnsTo": [
+            "user_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "cortaqui_disponibilidade_fk_Usuario_barbeiro_id_cortaqui_usuario_user_id_fk": {
+          "name": "cortaqui_disponibilidade_fk_Usuario_barbeiro_id_cortaqui_usuario_user_id_fk",
+          "tableFrom": "cortaqui_disponibilidade",
+          "tableTo": "cortaqui_usuario",
+          "columnsFrom": [
+            "fk_Usuario_barbeiro_id"
+          ],
+          "columnsTo": [
+            "user_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.cortaqui_pagamento": {
+      "name": "cortaqui_pagamento",
+      "schema": "",
+      "columns": {
+        "pagamento_id": {
+          "name": "pagamento_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "id_transacao_gateway": {
+          "name": "id_transacao_gateway",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "status_pagamento_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valor": {
+          "name": "valor",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data_pagamento": {
+          "name": "data_pagamento",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "metodo": {
+          "name": "metodo",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fk_Agendamento_agendamento_id": {
+          "name": "fk_Agendamento_agendamento_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "cortaqui_pagamento_fk_Agendamento_agendamento_id_cortaqui_agendamento_agendamento_id_fk": {
+          "name": "cortaqui_pagamento_fk_Agendamento_agendamento_id_cortaqui_agendamento_agendamento_id_fk",
+          "tableFrom": "cortaqui_pagamento",
+          "tableTo": "cortaqui_agendamento",
+          "columnsFrom": [
+            "fk_Agendamento_agendamento_id"
+          ],
+          "columnsTo": [
+            "agendamento_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "cortaqui_pagamento_fk_Agendamento_agendamento_id_unique": {
+          "name": "cortaqui_pagamento_fk_Agendamento_agendamento_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "fk_Agendamento_agendamento_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.cortaqui_servico": {
+      "name": "cortaqui_servico",
+      "schema": "",
+      "columns": {
+        "servico_id": {
+          "name": "servico_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "nome": {
+          "name": "nome",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "descricao": {
+          "name": "descricao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "duracao_minutos": {
+          "name": "duracao_minutos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "preco_base": {
+          "name": "preco_base",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ativo": {
+          "name": "ativo",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.cortaqui_servico_barbeiro": {
+      "name": "cortaqui_servico_barbeiro",
+      "schema": "",
+      "columns": {
+        "barbeiro_user_id": {
+          "name": "barbeiro_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "servico_id": {
+          "name": "servico_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "preco_especifico": {
+          "name": "preco_especifico",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "cortaqui_servico_barbeiro_barbeiro_user_id_servico_id_pk": {
+          "name": "cortaqui_servico_barbeiro_barbeiro_user_id_servico_id_pk",
+          "columns": [
+            "barbeiro_user_id",
+            "servico_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.cortaqui_usuario": {
+      "name": "cortaqui_usuario",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "nome": {
+          "name": "nome",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(150)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "telefone": {
+          "name": "telefone",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "hash_senha": {
+          "name": "hash_senha",
+          "type": "varchar(150)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tipo_usuario": {
+          "name": "tipo_usuario",
+          "type": "tipo_usuario_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data_cadastro": {
+          "name": "data_cadastro",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "cortaqui_usuario_email_unique": {
+          "name": "cortaqui_usuario_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.dia_semana_enum": {
+      "name": "dia_semana_enum",
+      "schema": "public",
+      "values": [
+        "SEGUNDA",
+        "TERCA",
+        "QUARTA",
+        "QUINTA",
+        "SEXTA",
+        "SABADO",
+        "DOMINGO"
+      ]
+    },
+    "public.status_agendamento_enum": {
+      "name": "status_agendamento_enum",
+      "schema": "public",
+      "values": [
+        "CONFIRMADO",
+        "PENDENTE",
+        "CANCELADO",
+        "CONCLUIDO"
+      ]
+    },
+    "public.status_nota_enum": {
+      "name": "status_nota_enum",
+      "schema": "public",
+      "values": [
+        "EMITIDA",
+        "CANCELADA",
+        "ERRO"
+      ]
+    },
+    "public.status_pagamento_enum": {
+      "name": "status_pagamento_enum",
+      "schema": "public",
+      "values": [
+        "APROVADO",
+        "PENDENTE",
+        "REJEITADO"
+      ]
+    },
+    "public.tipo_disponibilidade_enum": {
+      "name": "tipo_disponibilidade_enum",
+      "schema": "public",
+      "values": [
+        "TRABALHO",
+        "BLOQUEIO"
+      ]
+    },
+    "public.tipo_usuario_enum": {
+      "name": "tipo_usuario_enum",
+      "schema": "public",
+      "values": [
+        "CLIENTE",
+        "BARBEIRO",
+        "ADMIN"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
