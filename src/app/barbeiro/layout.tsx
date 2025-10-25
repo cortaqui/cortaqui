@@ -1,13 +1,16 @@
 "use client"
+
 import type React from "react"
 import { useIsMobile } from "~/hooks/use-mobile"
 import { Logo } from "~/components/logo"
 import { ClerkAuthButtons } from "~/components/ClerkAuthButtons"
 import { MobileNavSheet } from "~/components/MobileNavSheet"
 import Link from "next/link"
-import { CalendarDays, History, User } from "lucide-react"
+import { CalendarDays, History, HelpCircle } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { SidebarProvider } from "~/components/ui/sidebar"
+import { useState } from "react"
+import { ModalHelp } from "~/components/ModalHelp"
 
 export default function BarbeiroLayout({
   children,
@@ -17,6 +20,7 @@ export default function BarbeiroLayout({
   const isMobile = useIsMobile()
   const pathname = usePathname()
   const headerText = pathname?.includes("/barbeiro/historico-servicos") ? "Histórico" : "Agenda"
+  const [helpOpen, setHelpOpen] = useState(false)
 
   return (
     <div className="min-h-screen bg-background">
@@ -27,6 +31,7 @@ export default function BarbeiroLayout({
             {isMobile ? (
               <div className="flex items-center gap-3">
                 <ClerkAuthButtons />
+                <button aria-label="Ajuda" className="text-xl leading-none" onClick={() => setHelpOpen(true)}><HelpCircle /></button>
                 <MobileNavSheet
                   items={[
                     { title: "Agenda", url: "/barbeiro/agenda", icon: CalendarDays },
@@ -50,6 +55,7 @@ export default function BarbeiroLayout({
                     Meus Agendamentos
                   </Link>
                 </nav>
+                <button aria-label="Ajuda" className="text-xl leading-none" onClick={() => setHelpOpen(true)}><HelpCircle /></button>
                 <ClerkAuthButtons />
               </div>
             )}
@@ -58,6 +64,7 @@ export default function BarbeiroLayout({
       </header>
       <SidebarProvider>
       <main className="container mx-auto px-4 py-4">
+        <ModalHelp open={helpOpen} onOpenChange={setHelpOpen} pathname={pathname ?? "/barbeiro/agenda"} />
         {children}
       </main>
       </SidebarProvider>

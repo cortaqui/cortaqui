@@ -111,6 +111,48 @@ function getHelpForPath(pathname: string): { title: string; body: string[] } {
       ],
     }
   }
+  if (pathname.startsWith("/agendar")) {
+    return {
+      title: "Ajuda • Agendar",
+      body: [
+        "Escolha primeiro o serviço desejado para ver os barbeiros disponíveis.",
+        "Depois selecione o barbeiro e a data. Os horários exibidos já consideram conflitos e disponibilidade.",
+        "Se não aparecerem horários, tente escolher outra data ou outro barbeiro.",
+        "Ao confirmar, você será redirecionado para 'Meus Agendamentos'.",
+        "Caso os dados não estejam carregando, tente recarregar a página ou cheque sua conexão com à internet.",
+      ],
+    }
+  }
+  if (pathname.startsWith("/meus-agendamentos")) {
+    return {
+      title: "Ajuda • Meus Agendamentos",
+      body: [
+        "Aqui você visualiza seus agendamentos futuros e passados.",
+        "Para criar um novo agendamento, use a página 'Agendar'.",
+        "Caso não veja um agendamento recém-criado, recarregue a página.",
+      ],
+    }
+  }
+  if (pathname.startsWith("/barbeiro/agenda")) {
+    return {
+      title: "Ajuda • Agenda do Barbeiro",
+      body: [
+        "Visualize seus horários do dia e próximos agendamentos.",
+        "Conflitos não são permitidos e bloqueios/expediente afetam a disponibilidade.",
+        "Use o menu para navegar para o histórico de serviços.",
+      ],
+    }
+  }
+  if (pathname.startsWith("/barbeiro/historico-servicos")) {
+    return {
+      title: "Ajuda • Histórico do Barbeiro",
+      body: [
+        "Lista de serviços já realizados.",
+        "Use os filtros da página (quando disponíveis) para refinar a busca.",
+        "Caso os dados não estejam carregando, tente recarregar a página ou cheque sua conexão com à internet.",
+      ],
+    }
+  }
   return {
     title: "Ajuda",
     body: [
