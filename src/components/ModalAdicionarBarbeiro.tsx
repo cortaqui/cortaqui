@@ -138,7 +138,7 @@ export function ModalAdicionarBarbeiro({ open, onOpenChange, onBarbeiroAdicionad
               <label htmlFor="add-manual" className="text-sm">Adicionar manualmente</label>
             </div>
             {clerkUserId && !manual && (
-              <p className="text-xs text-muted-foreground">Usuário encontrado no sistema. Campos preenchidos automaticamente.</p>
+              <p className="text-xs text-muted-foreground">Usuário encontrado no sistema.</p>
             )}
 
             {manual && (

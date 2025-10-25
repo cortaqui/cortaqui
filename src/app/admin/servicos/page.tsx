@@ -63,7 +63,7 @@ export default function ServicosPage() {
         const rows = (await res.json()) as unknown as AdminServicoRow[]
         if (!mounted) return
         setServicos(rows.map(mapRow))
-      } catch {}
+      } catch { }
     })()
     return () => {
       mounted = false
@@ -165,7 +165,7 @@ export default function ServicosPage() {
           <div className="flex gap-2">
             <Button onClick={() => setAddSpecificOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
-              Adicionar Serviço Específico
+              Adicionar Preço Específico
             </Button>
           </div>
         }
