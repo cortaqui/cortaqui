@@ -57,6 +57,7 @@ export function ModalAgendamentoCliente({ open, onOpenChange, onAgendamentoCriad
   const [slotSel, setSlotSel] = useState<Date | null>(null)
   const [dispon, setDispon] = useState<DisponibilidadeItem[]>([])
   const [bookings, setBookings] = useState<{ inicio: Date; fim: Date }[]>([])
+  const [clientBookings, setClientBookings] = useState<{ inicio: Date; fim: Date }[]>([])
   const [loading, setLoading] = useState(false)
 
   // Derived
@@ -123,6 +124,28 @@ export function ModalAgendamentoCliente({ open, onOpenChange, onAgendamentoCriad
     })()
   }, [barbeiroSel?.id, duracaoMin])
 
+  // Fetch client's own bookings for selected date (to avoid overlaps with other barbers)
+  useEffect(() => {
+    if (!clienteSel?.id || !date) { setClientBookings([]); return }
+    void (async () => {
+      try {
+        const res = await fetch(`/api/agendamentos`, { cache: "no-store" })
+        if (res.ok) {
+          const rowsUnknown: unknown = await res.json()
+          const rows = Array.isArray(rowsUnknown) ? (rowsUnknown as Array<Record<string, unknown>>) : []
+          const sameDay = (d: Date) => d.getFullYear() === date.getFullYear() && d.getMonth() === date.getMonth() && d.getDate() === date.getDate()
+          const filtered = rows.filter((r) => String(r.fkClienteId ?? r.cliente_user_id) === clienteSel.id)
+          setClientBookings(filtered.map((r) => {
+            const start = new Date(String(r.dataHoraInicio ?? r.data_hora))
+            const endVal = (r.dataHoraFim as string | undefined) ?? undefined
+            const end = endVal ? new Date(endVal) : new Date(start.getTime() + (duracaoMin * 60000))
+            return { inicio: start, fim: end }
+          }).filter((b) => sameDay(b.inicio)))
+        }
+      } catch {}
+    })()
+  }, [clienteSel?.id, date, duracaoMin])
+
   // Update effective price when both serviço and barbeiro are selected
   useEffect(() => {
     if (!servicoSel?.id || !barbeiroSel?.id) return
@@ -154,13 +177,14 @@ export function ModalAgendamentoCliente({ open, onOpenChange, onAgendamentoCriad
       date,
       duracaoMin,
       30,
+      clientBookings.map((b) => ({ barbeiroId: "any", inicio: b.inicio, fim: b.fim })),
     ).filter((d) => d.getTime() > Date.now())
     setSlots(slotDates)
     // reset selected if not present
     if (slotSel && !slotDates.find((d) => d.getTime() === slotSel.getTime())) {
       setSlotSel(null)
     }
-  }, [barbeiroSel?.id, date, dispon, bookings, duracaoMin, servicoSel?.id, slotSel])
+  }, [barbeiroSel?.id, date, dispon, bookings, clientBookings, duracaoMin, servicoSel?.id, slotSel])
 
   function resetAll() {
     setClienteQuery("")

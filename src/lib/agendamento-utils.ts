@@ -208,7 +208,8 @@ export function generateAvailableSlots(
   bookings: BookingItem[],
   date: Date,
   serviceDurationMin: number,
-  stepMin = 30
+  stepMin = 30,
+  clientBookings: BookingItem[] = []
 ): Date[] {
   // convert bookings to day-minute intervals for the barber
   const bookingIntervals: Interval[] = bookings.map(b => ({
@@ -216,9 +217,18 @@ export function generateAvailableSlots(
     endMin: minutesSinceMidnight(b.fim),
   }))
 
+  // convert client bookings (possibly with other barbers) to intervals as additional blockers
+  const clientBookingIntervals: Interval[] = clientBookings.map(b => ({
+    startMin: minutesSinceMidnight(b.inicio),
+    endMin: minutesSinceMidnight(b.fim),
+  }))
+
   const freeAfterBookings: Interval[] = []
   for (const w of effectiveWork) {
-    freeAfterBookings.push(...subtractIntervals(w, bookingIntervals))
+    // subtract both the selected barber's bookings and the client's existing bookings
+    freeAfterBookings.push(
+      ...subtractIntervals(w, [...bookingIntervals, ...clientBookingIntervals])
+    )
   }
 
   const slots: Date[] = []

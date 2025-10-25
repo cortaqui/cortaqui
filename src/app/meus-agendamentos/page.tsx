@@ -12,15 +12,19 @@ import { useIsMobile } from "~/hooks/use-mobile"
 import { ClerkAuthButtons } from "~/components/ClerkAuthButtons"
 import { MobileNavSheet } from "~/components/MobileNavSheet"
 import { Logo } from "~/components/logo"
-import { CalendarDays } from "lucide-react"
+import { CalendarDays, HelpCircle } from "lucide-react"
 import { User } from "lucide-react"
+import { ModalHelp } from "~/components/ModalHelp"
+import { usePathname } from "next/navigation"
 
 export default function MeusAgendamentosPage() {
   const isMobile = useIsMobile()
+  const pathname = usePathname()
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([])
   const [modalCancelarOpen, setModalCancelarOpen] = useState(false)
   const [modalPagamentoOpen, setModalPagamentoOpen] = useState(false)
   const [agendamentoSelecionado, setAgendamentoSelecionado] = useState<Agendamento | null>(null)
+  const [helpOpen, setHelpOpen] = useState(false)
 
   // Load my agendamentos
   useEffect(() => {
@@ -97,6 +101,7 @@ export default function MeusAgendamentosPage() {
           <Logo text="Cortaqui" />
           {isMobile ? (
             <div className="flex items-center gap-3">
+                              <button aria-label="Ajuda" className="text-xl leading-none" onClick={() => setHelpOpen(true)}><HelpCircle /></button>
               <ClerkAuthButtons />
               <MobileNavSheet
                 items={[
@@ -109,6 +114,7 @@ export default function MeusAgendamentosPage() {
             <nav className="flex items-center gap-4">
               <a href="/agendar" className="text-sm hover:underline">Agendar</a>
               <a href="/meus-agendamentos" className="text-sm hover:underline">Meus Agendamentos</a>
+              <button aria-label="Ajuda" className="text-xl leading-none" onClick={() => setHelpOpen(true)}><HelpCircle /></button>
               <ClerkAuthButtons />
             </nav>
           )}
@@ -199,6 +205,7 @@ export default function MeusAgendamentosPage() {
           setAgendamentoSelecionado(null)
         }}
       />
+      <ModalHelp open={helpOpen} onOpenChange={setHelpOpen} pathname={pathname ?? "/meus-agendamentos"} />
     </div>
   )
 }

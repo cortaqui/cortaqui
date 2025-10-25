@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState } from "react"
 import { Button } from "~/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card"
 import { Calendar } from "~/components/ui/calendar"
-import { Scissors, User, CalendarDays } from "lucide-react"
+import { Scissors, User, CalendarDays, HelpCircle } from "lucide-react"
 import { useIsMobile } from "~/hooks/use-mobile"
 import { ClerkAuthButtons } from "~/components/ClerkAuthButtons"
+import { ModalHelp } from "~/components/ModalHelp"
+import { usePathname } from "next/navigation"
 import { MobileNavSheet } from "~/components/MobileNavSheet"
 import { Logo } from "~/components/logo"
 import { Autocomplete, type Suggestion } from "~/components/Autocomplete"
@@ -15,7 +17,8 @@ import { computeDailyWorkIntervals, generateAvailableSlots, type Disponibilidade
 
 export default function AgendarPage() {
   const isMobile = useIsMobile()
-  // On this page, always show client menus to avoid overriding barber layout
+  const pathname = usePathname()
+  const [helpOpen, setHelpOpen] = useState(false)
   const [servicoQuery, setServicoQuery] = useState("")
   const [servicoSel, setServicoSel] = useState<{ id: string; nome: string; duracaoMin?: number; precoBase?: number } | null>(null)
   const [barbeiroQuery, setBarbeiroQuery] = useState("")
@@ -25,13 +28,12 @@ export default function AgendarPage() {
   const [slotSel, setSlotSel] = useState<Date | null>(null)
   const [dispon, setDispon] = useState<DisponibilidadeItem[]>([])
   const [bookings, setBookings] = useState<{ inicio: Date; fim: Date }[]>([])
+  const [myBookings, setMyBookings] = useState<{ inicio: Date; fim: Date }[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const duracaoMin = servicoSel?.duracaoMin ?? 30
   const precoFinal = useMemo(() => servicoSel?.precoBase ?? 0, [servicoSel])
-
-  // Auth handled via Clerk SignedIn/SignedOut components
 
   useEffect(() => {
     if (!servicoSel?.id) return
@@ -91,6 +93,37 @@ export default function AgendarPage() {
     })()
   }, [barbeiroSel?.id, duracaoMin, date])
 
+  // Fetch my own existing bookings for the selected date to prevent cross-barber overlaps
+  useEffect(() => {
+    if (!date) { setMyBookings([]); return }
+    void (async () => {
+      try {
+        const res = await fetch('/api/cliente/agendamentos/mine', { cache: 'no-store' })
+        if (res.ok) {
+          const rowsUnknown: unknown = await res.json()
+          type MineRow = {
+            ag?: {
+              dataHoraInicio?: string
+              dataHoraFim?: string
+              data_hora?: string
+            }
+            dataHoraInicio?: string
+            dataHoraFim?: string
+          }
+          const rows = Array.isArray(rowsUnknown) ? (rowsUnknown as MineRow[]) : []
+          const sameDay = (d: Date) => d.getFullYear() === date.getFullYear() && d.getMonth() === date.getMonth() && d.getDate() === date.getDate()
+          setMyBookings(rows.map((r) => {
+            const startVal = r.ag?.dataHoraInicio ?? r.dataHoraInicio ?? r.ag?.data_hora ?? ''
+            const endVal = r.ag?.dataHoraFim ?? r.dataHoraFim
+            const start = new Date(startVal)
+            const end = endVal ? new Date(endVal) : new Date(start.getTime() + (duracaoMin * 60000))
+            return { inicio: start, fim: end }
+          }).filter((b) => sameDay(b.inicio)))
+        }
+      } catch {}
+    })()
+  }, [date, duracaoMin])
+
   useEffect(() => {
     if (!barbeiroSel?.id || !date || !servicoSel?.id) { setSlots([]); setSlotSel(null); return }
     const eff = computeDailyWorkIntervals(dispon, barbeiroSel.id, date)
@@ -101,10 +134,11 @@ export default function AgendarPage() {
       date,
       duracaoMin,
       30,
+      myBookings.map((b) => ({ barbeiroId: 'me', inicio: b.inicio, fim: b.fim })),
     ).filter((d) => d.getTime() > Date.now())
     setSlots(slotDates)
     if (slotSel && !slotDates.find((d) => d.getTime() === slotSel.getTime())) setSlotSel(null)
-  }, [barbeiroSel?.id, date, dispon, bookings, duracaoMin, servicoSel?.id, slotSel])
+  }, [barbeiroSel?.id, date, dispon, bookings, myBookings, duracaoMin, servicoSel?.id, slotSel])
 
   return (
     <div className="container mx-auto p-4 space-y-6">
@@ -113,6 +147,7 @@ export default function AgendarPage() {
           <Logo text="Cortaqui" />
           {isMobile ? (
             <div className="flex items-center gap-3">
+              <button aria-label="Ajuda" className="text-xl leading-none" onClick={() => setHelpOpen(true)}><HelpCircle /></button>
               <ClerkAuthButtons />
               <MobileNavSheet
                 items={[
@@ -125,6 +160,7 @@ export default function AgendarPage() {
             <nav className="flex items-center gap-4">
               <a href="/agendar" className="text-sm hover:underline">Agendar</a>
               <a href="/meus-agendamentos" className="text-sm hover:underline">Meus Agendamentos</a>
+              <button aria-label="Ajuda" className="text-xl leading-none" onClick={() => setHelpOpen(true)}><HelpCircle /></button>
               <ClerkAuthButtons />
             </nav>
           )}
@@ -139,6 +175,7 @@ export default function AgendarPage() {
       </SignedOut>
 
       <SignedIn>
+      <ModalHelp open={helpOpen} onOpenChange={setHelpOpen} pathname={pathname ?? "/agendar"} />
       {!servicoSel ? (
         <div>
           <h2 className="text-xl font-semibold mb-4">Escolha um Serviço</h2>
