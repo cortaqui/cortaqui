@@ -153,10 +153,10 @@ export function ModalEditarServico({ open, onOpenChange, servico, onServicoEdita
             </div>
             <div className="grid grid-cols-2 gap-4 items-start">
               <div className="grid gap-2 min-w-0">
-                <Label htmlFor="duracao">Duração (min)</Label>
+                <Label htmlFor="duracao">Duração</Label>
                 <Select value={duracaoMinutos} onValueChange={setDuracaoMinutos} required>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Selecione a duração" />
+                  <SelectTrigger className="max-w-[180px]">
+                    <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent>
                     {[30, 60, 90, 120, 150, 180].map((minutos) => {
