@@ -84,7 +84,7 @@ export function AgendamentoCard({
           </div>
           {showActions && (
             <div className="flex flex-col gap-2">
-              {onPay && (
+              {onPay && agendamento.status === "confirmado" && (
                 <Button
                   size="sm"
                   onClick={() => onPay(agendamento)}
